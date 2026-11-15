@@ -10,7 +10,8 @@ label {
   display: block;
   margin: 1rem 0;
 }
-input {
+input,
+select {
   display: block;
   box-sizing: border-box;
   width: 100%;

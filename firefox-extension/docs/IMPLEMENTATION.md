@@ -299,3 +299,7 @@ All 210 unit tests, type checking, ESLint, and the production build passed.
 ### Source replacement during playback
 
 For automatically extracted pages, the source watcher can rebind sentence ranges after a same-text DOM replacement without restarting playback. It verifies the complete readable node sequence, exact text (including whitespace), ancestor tag paths and block grouping before rebuilding ranges from offsets saved before the mutation. Selection and editor scopes remain conservative and invalidate on replacement. Changed text, visibility, disconnected roots, or mappings that cannot be verified still invalidate the session.
+
+## Available voice selection
+
+The settings page loads available voices after restoring saved credentials and refreshes them on Test connection. Selecting a voice fills the editable voice field; failed or empty discovery leaves manual entry available. Credential edits invalidate pending discovery results.

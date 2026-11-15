@@ -100,7 +100,12 @@ class FixtureServer:
                         self.send(
                             200,
                             json.dumps(
-                                {"voices": [{"id": "af_heart", "language": "a"}]}
+                                {
+                                    "voices": [
+                                        {"id": "af_heart", "language": "a"},
+                                        {"id": "af_bella", "language": "a"},
+                                    ]
+                                }
                             ).encode(),
                             "application/json",
                         )

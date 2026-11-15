@@ -8,6 +8,7 @@
   let speed = $state<number | undefined>();
   let status = $state("");
   let voices = $state<string[]>([]);
+  let requestGeneration = 0;
 
   const readForm = () =>
     validateSettings({ baseUrl, token, voice, speed: Number(speed) });
@@ -19,6 +20,7 @@
       token = settings.token;
       voice = settings.voice;
       speed = settings.speed;
+      if (token.trim()) void loadVoices(false);
     });
   });
 
@@ -34,9 +36,24 @@
     }
   }
 
-  async function testConnection() {
+  function credentialsChanged() {
+    requestGeneration += 1;
+    voices = [];
+    status = "";
+  }
+
+  async function loadVoices(reportStatus: boolean) {
+    const generation = ++requestGeneration;
+    voices = [];
+    if (reportStatus) status = "Checking connection…";
     try {
-      const settings = readForm();
+      // Voice discovery only depends on the endpoint and token.
+      const settings = validateSettings({
+        baseUrl,
+        token,
+        voice: defaults.voice,
+        speed: defaults.speed,
+      });
       const response = await fetch(`${settings.baseUrl}/v1/voices`, {
         redirect: "error",
         headers: { Authorization: `Bearer ${settings.token}` },
@@ -49,15 +66,19 @@
             : "Server connection failed.",
         );
       const result = (await response.json()) as { voices: { id: string }[] };
+      if (generation !== requestGeneration) return;
       voices = result.voices.map((item) => item.id);
-      status = `Connected. ${result.voices.length} voices available.`;
+      if (reportStatus)
+        status = `Connected. ${voices.length} voices available.`;
     } catch (error) {
-      status =
-        error instanceof TypeError
-          ? "Cannot reach the local speech server."
-          : error instanceof Error
-            ? error.message
-            : "Connection failed.";
+      if (generation !== requestGeneration) return;
+      if (reportStatus)
+        status =
+          error instanceof TypeError
+            ? "Cannot reach the local speech server."
+            : error instanceof Error
+              ? error.message
+              : "Connection failed.";
     }
   }
 </script>
@@ -71,6 +92,7 @@
       type="url"
       required
       bind:value={baseUrl}
+      oninput={credentialsChanged}
     /></label
   >
   <label
@@ -80,17 +102,24 @@
       autocomplete="off"
       required
       bind:value={token}
+      oninput={credentialsChanged}
     /></label
   >
+  <label>Voice<input id="voice" required bind:value={voice} /></label>
   <label
-    >Voice<input
-      id="voice"
-      list="voices"
-      required
-      bind:value={voice}
-    /><datalist id="voices"
-      >{#each voices as item}<option value={item}></option>{/each}</datalist
-    ></label
+    >Available voices<select
+      id="voices"
+      value={voices.includes(voice) ? voice : ""}
+      onchange={(event) => {
+        if (event.currentTarget.value) voice = event.currentTarget.value;
+      }}
+      disabled={voices.length === 0}
+    >
+      <option value="" disabled
+        >{voices.length ? "Choose a voice" : "No voices available"}</option
+      >
+      {#each voices as item}<option value={item}>{item}</option>{/each}
+    </select></label
   >
   <label
     >Speed<input
@@ -104,7 +133,7 @@
     /></label
   >
   <button type="submit">Save settings</button>
-  <button type="button" id="test" onclick={testConnection}
+  <button type="button" id="test" onclick={() => loadVoices(true)}
     >Test connection</button
   >
 </form>
