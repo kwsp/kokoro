@@ -111,7 +111,7 @@ The server runs one Uvicorn worker and one dedicated synthesis thread.
 PyTorch can still use multiple CPU threads inside that model operation; one active request does not mean one CPU core.
 Adding Uvicorn workers would load a separate model in each process and should be benchmarked for the intended hardware before changing this configuration.
 For sentence-by-sentence reading, preparing audio ahead of playback matters more than accepting concurrent HTTP requests when the client sends its requests serially.
-The Firefox reader's [performance notes](firefox-extension/PERFORMANCE.md) document its bounded read-ahead queue and local CPU/MPS measurements.
+The Firefox reader's [performance notes](firefox-extension/docs/PERFORMANCE.md) document its bounded read-ahead queue and local CPU/MPS measurements.
 
 Kokoro returns completed audio chunks, not samples during a still-running model operation.
 PCM streams those chunks as they become available; short sentence requests can reduce initial latency.

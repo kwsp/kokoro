@@ -107,4 +107,4 @@ Distinguish UI preparation waits from audible silence and total request or prepa
 For manual installation, load `dist/manifest.json` as a temporary add-on from `about:debugging`.
 After a relevant build, instruct the user to reload the temporary add-on and refresh the page before retrying on the actual affected site.
 Request a manual listening check when speaker output or voice quality matters and automation cannot establish it.
-Update `README.md`, `IMPLEMENTATION.md`, and `PERFORMANCE.md` when their user instructions, implementation record, or measurements change, and report only test counts and results actually verified in the current run.
+Update `README.md`, `docs/IMPLEMENTATION.md`, and `docs/PERFORMANCE.md` when their user instructions, implementation record, or measurements change, and report only test counts and results actually verified in the current run.

@@ -2,7 +2,7 @@
 
 Read articles or selected text aloud with the local Kokoro server, with sentence highlighting and a compact page control bar.
 This personal-use extension sends text only to the loopback server you configure and does not require an OpenAI account.
-See [IMPLEMENTATION.md](IMPLEMENTATION.md) for implementation and verification reports and [REFACTOR_PLAN.md](REFACTOR_PLAN.md) for the refactor sequence.
+See [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) for implementation and verification reports and [REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) for the refactor sequence.
 
 ## Start the local server
 
@@ -139,7 +139,7 @@ An unsuccessful prefetch is discarded and the unread sentence gets a normal requ
 - Loopback HTTP endpoints only, with a shared token stored in Firefox extension settings; the token is not included in page controls or content-script messages.
 - The 32 MiB budget covers retained raw audio, streaming assembly, and decoded samples; browser-internal copies and garbage collection are outside the extension's control.
 
-The short-sentence diagnosis, implementation steps, CPU/MPS measurements, and playback regression commands are in [PERFORMANCE.md](PERFORMANCE.md).
+The short-sentence diagnosis, implementation steps, CPU/MPS measurements, and playback regression commands are in [PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Installed-extension test
 

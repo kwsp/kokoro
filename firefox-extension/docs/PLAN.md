@@ -2,7 +2,7 @@
 
 Draft for review, November 14, 2026.
 This document plans the extension; it does not implement or install it.
-It builds on the working local server described in [SERVER.md](../SERVER.md).
+It builds on the working local server described in [SERVER.md](../../SERVER.md).
 
 ## First usable version
 
@@ -15,7 +15,7 @@ Sentence-level highlighting is the initial contract: the server returns audio bu
 Do not approximate word timing by dividing the sentence duration evenly across words.
 Accurate word highlighting would require a separate backend timing feature and validation later.
 
-This refines [the earlier exploration](../TTS_EXTENSION_PLAN.md) around a smaller UI and page-scoped playback.
+This refines [the earlier exploration](../../TTS_EXTENSION_PLAN.md) around a smaller UI and page-scoped playback.
 Navigating or closing the source page stops reading; switching to another tab does not.
 Only one page may read at a time.
 
