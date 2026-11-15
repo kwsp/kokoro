@@ -67,3 +67,27 @@ The Alt+Shift+K shortcut and selection context menu remain manual browser checks
 Audible speaker output also requires a listening check.
 The test-only geckodriver system-access flag permits automation of browser chrome and the extension options page without adding extension permissions.
 On macOS the harness isolates application data with `CFFIXED_USER_HOME`, avoiding personal Firefox profiles and Full Disk Access.
+
+### Step 2 report
+
+Implemented exact selection clipping and UTF-16 source mapping, whitespace normalization, inline/block/line-break handling, sentence segmentation, and splitting at 1,000 Unicode code points without truncation.
+Selection ranges are cloned before the controls receive focus, and repeated activation can replace the scope while keeping one control bar.
+The session and Web Audio modules support sequential playback, exact audio-clock pause offsets, Resume, Stop, completion, Retry at the failed sentence, and cancellation of stale requests, decodes, and end callbacks.
+The controls show sentence progress and keep a distinct paused highlight.
+Background cancellation matches the originating tab and request ID, and audio/settings requests reject redirects.
+The token remains in extension storage and background/options code.
+WAV validation checks the backend's 24 kHz mono PCM format and rejects raw plus decoded audio exceeding 32 MiB before decoding, with a second check on the actual buffer size.
+
+Validation passed: TypeScript, ESLint, Prettier, 65 unit tests, build, web-ext with zero errors and warnings, Black, Ruff, and five installed-extension E2E tests in Firefox 157.0.1.
+The browser suite exercises all three real entry points, selection across inline nodes and emoji, exact sentence highlights, selection replacement, pause/resume without another request, Stop, delayed-response cancellation, and malformed-WAV Retry.
+The foundation browser test exposed that `crypto.randomUUID()` is unavailable on ordinary HTTP pages.
+Request IDs now use `crypto.getRandomValues()`, covered by a regression unit test and the passing HTTP-page E2E suite.
+The reusable harness records request history and reader state without tokens and captures speaking, paused, and failure screenshots.
+The primary agent reviewed the selection screenshot and confirmed that the mapped highlight follows the intended source text.
+A focused test isolated slow Firefox shutdown to WebDriver leaving the native context menu open after dispatching its menu item action, even without audio.
+The harness now dismisses that popup after the real click and waits for it to close; the focused selection test passed in 7.87 seconds, down from 77.79 seconds.
+This is test cleanup only and does not change the extension's permissions or activation path.
+
+Remaining scope for later steps: complete article extraction and fallback highlighting, click-to-read, cross-tab ownership, bounded prefetch/retries, mutation/settings lifecycle, and the real-backend listening check.
+Requests remain sequential in this step, and the no-selection fallback still reads only the first article/main paragraph.
+The normal page selection can visually overlay its own blue selection color on the sentence highlight; article/highlight polish can improve that presentation without losing the original selection mapping.

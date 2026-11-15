@@ -18,6 +18,7 @@ describe("speech transport", () => {
     const [url, options] = mock.mock.calls[0]!;
     expect(url).toBe("http://127.0.0.1:8880/v1/audio/speech");
     expect(options?.signal).toBe(signal);
+    expect(options?.redirect).toBe("error");
     expect(options?.headers).toEqual({
       Authorization: "Bearer local-secret",
       "Content-Type": "application/json",

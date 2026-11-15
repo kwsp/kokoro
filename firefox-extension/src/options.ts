@@ -36,6 +36,7 @@ document.getElementById("test")!.addEventListener("click", () => {
     try {
       const settings = readForm();
       const response = await fetch(`${settings.baseUrl}/v1/voices`, {
+        redirect: "error",
         headers: { Authorization: `Bearer ${settings.token}` },
         signal: AbortSignal.timeout(5000),
       });

@@ -1,7 +1,8 @@
 # Kokoro Firefox reader development
 
 The extension is being implemented according to [IMPLEMENTATION.md](IMPLEMENTATION.md).
-Step 1 provides a working Firefox foundation; complete article reading and playback controls are added in subsequent steps.
+Steps 1 and 2 provide selection reading with sentence highlights, pause/resume, Stop, and Retry.
+Full article extraction and click-to-read are added in subsequent steps.
 
 ## Build and checks
 
@@ -19,7 +20,14 @@ npm run lint:extension
 Load `dist/manifest.json` through Firefox's `about:debugging` temporary add-on loader, or use `npm run dev`.
 The extension opens its settings page when first installed.
 Configure the loopback server URL and token, then use Alt+Shift+K or the toolbar button on a page to display the reader.
-The development foundation reads an explicit selection or the first article/main paragraph after clicking Play.
+Select a passage across ordinary page text and activate Kokoro with the toolbar action, Alt+Shift+K, or the “Read selection with Kokoro” context menu.
+Press Play in the compact reader bar.
+The selected text is split into sentences, and only the current sentence is highlighted while audio plays.
+Pause keeps the current sentence and exact audio offset; Resume continues from there without another request.
+Stop cancels pending work and resets to the beginning of the selected passage.
+Retry repeats the current sentence after an error.
+A fresh selection followed by activation replaces the reading scope without creating another control bar.
+Until article extraction is implemented, activation without a selection reads the first article/main paragraph.
 No audio starts merely because the extension is activated.
 
 ## Installed-extension test
@@ -40,9 +48,11 @@ Set `FIREFOX_BINARY` to override the default macOS Firefox path and `FIREFOX_HEA
 The test grants geckodriver system access so it can operate the extension's own options page in recent Firefox releases.
 This applies only to the isolated automation process and does not add permissions to the extension.
 On macOS, the test also isolates Firefox's application-data home to avoid accessing the user's profile or requiring Full Disk Access.
-The test captures a screenshot while speech is playing and verifies that the highlight clears after a real Web Audio end event.
-It activates the installed extension through Firefox's real Extensions menu using browser-chrome automation.
+The suite captures speaking and paused screenshots and verifies actual Web Audio completion, exact selection highlights, sequential requests, cancellation, and recoverable audio errors.
+Failure artifacts contain the control state, driver log, sanitized request history, and screenshots, without authorization headers.
+Unit tests cover Unicode/whitespace offsets, long segment splitting, disjoint selections, audio-clock offsets, stale network/decode callbacks, request validation, and the combined 32 MiB raw/decoded audio limit.
+It activates the installed extension through Firefox's real Extensions menu, Alt+Shift+K command, and selection context menu using browser-chrome automation.
 The test directory retains `speaking.png`, `final.png`, `browser-controls.json`, `server-history.json`, and the geckodriver log for diagnosis.
 The artifacts omit request authorization headers and options-page HTML.
-The Alt+Shift+K shortcut and selection context menu still need a normal-browser acceptance check because automated key routing did not activate the browser action reliably in headless Firefox.
+The shortcut test dispatches the command in browser chrome because WebDriver content-page key events do not reliably reach extension commands.
 Audible speaker output still requires a manual listening check.

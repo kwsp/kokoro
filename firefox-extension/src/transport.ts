@@ -12,6 +12,7 @@ export async function fetchSpeech(
     throw new Error("Choose a shorter, nonempty passage.");
   const response = await fetcher(`${settings.baseUrl}/v1/audio/speech`, {
     method: "POST",
+    redirect: "error",
     headers: {
       Authorization: `Bearer ${settings.token}`,
       "Content-Type": "application/json",
