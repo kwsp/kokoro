@@ -47,7 +47,7 @@ describe("reader controls", () => {
     observer.disconnect();
     controls.close();
   });
-  it("persists the advanced panel preference and keeps it above controls", async () => {
+  it("starts with the advanced panel hidden and keeps it above controls", async () => {
     const noop = () => {};
     const controls = createControls({
       play: noop,
@@ -77,9 +77,6 @@ describe("reader controls", () => {
     toggle.click();
     expect(panel.hidden).toBe(false);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(browser.storage.local.set).toHaveBeenCalledWith({
-      advancedExpanded: true,
-    });
     expect(panel.nextElementSibling?.tagName).toBe("NAV");
     toggle.click();
     expect(panel.hidden).toBe(true);
@@ -114,8 +111,8 @@ describe("reader controls", () => {
     expect(downloadLogs).toHaveBeenCalledOnce();
     controls.close();
   });
-  it("restores the saved expansion preference after reopening", async () => {
-    let expanded = false;
+  it("starts closed after reopening, even with a saved expansion preference", async () => {
+    let expanded = true;
     vi.stubGlobal("browser", {
       storage: {
         local: {
@@ -148,7 +145,7 @@ describe("reader controls", () => {
     await Promise.resolve();
     expect(
       second.host.shadowRoot!.getElementById("advanced-panel")!.hidden,
-    ).toBe(false);
+    ).toBe(true);
     second.close();
   });
   it("updates diagnostics only while expanded and retains visible list nodes", async () => {

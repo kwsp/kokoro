@@ -33,8 +33,6 @@
   let diagnosticSnapshot: Snapshot | undefined = $state.raw();
   let playButton: HTMLButtonElement;
   let timer: ReturnType<typeof setInterval> | undefined;
-  let closed = false;
-  let preferenceChanged = false;
   function icon(
     node: HTMLElement,
     definition: Parameters<typeof createElement>[0],
@@ -54,19 +52,8 @@
     }
   }
   function toggle() {
-    preferenceChanged = true;
     flushSync(() => setExpanded(!expanded));
-    void browser.storage.local
-      .set({ advancedExpanded: expanded })
-      .catch(() => {});
   }
-  void browser.storage.local
-    .get("advancedExpanded")
-    .then((stored) => {
-      if (!closed && !preferenceChanged && stored.advancedExpanded === true)
-        flushSync(() => setExpanded(true));
-    })
-    .catch(() => {});
   let playText = $derived(
     selectionAvailable
       ? "Read selection"
@@ -119,7 +106,6 @@
     playButton.focus();
   }
   export function cleanup() {
-    closed = true;
     if (timer) clearInterval(timer);
   }
 </script>

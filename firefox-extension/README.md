@@ -215,5 +215,5 @@ The ordinary build and the other Firefox tests use runtime feature detection; no
 
 The reader's Advanced button opens a diagnostic panel above the playback controls.
 It reports prepared future audio, the current preparation stage, recent preparation time, and gaps between sentences.
-The expansion preference is saved in extension storage.
+The panel starts closed each time the reader is activated.
 Use **Download debug logs** in this panel after reproducing a problem; the JSON contains up to 500 recent events from the current reader session, including playback state and source-change summaries, but no page text, URLs, or backend tokens. Closing the reader discards the log.
