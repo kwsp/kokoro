@@ -271,6 +271,17 @@ The runtime speech adapter owns content-to-background request, ownership, and ca
 Click targeting takes the actual toolbar host, which removes its dependency on the UI module.
 Page, selection, and editor-preview lifecycle stay coordinated in the content entry point.
 
-Firefox 157.0.1 passed 46 installed-extension tests on this branch, including the new connection test. The four opt-in real-backend cases were skipped for this run.
+Firefox 157.0.1 passed 46 installed-extension tests for the renderer-preserving refactor, including the new connection test. The four opt-in real-backend cases were skipped for this run.
 The original extension passed 45 deterministic cases, with the same four skips. A focused baseline comparison under restrictive page CSP observed matching toolbar styles, highlight registration, and cleanup.
 The final branch passed 202 Vitest tests, TypeScript, ESLint, Prettier, Black, Ruff, and a clean build, extension lint, and package.
+
+The Svelte migration renders the settings form and the shadow-root controls with Svelte.
+The controls adapter preserves synchronous updates and focus for the existing content entry point.
+The build compiles DOM-tree fragments to keep extension lint clean and packages licenses for the bundled runtime.
+The installed settings test verifies the voice list and token error through the real extension page.
+
+Firefox 157.0.1 passed all 50 installed-extension cases before the final diagnostics update, including four real Kokoro CPU and automatic MPS cases.
+All four headless toolbar layout screenshots matched baseline byte-for-byte.
+Seven focused headed Firefox presentation, keyboard, and diagnostics cases passed after the update. The final candidate passed 203 unit tests, TypeScript and Svelte checking, ESLint, Prettier, Black, Ruff, build, extension lint, and packaging.
+
+With `gzip -cn`, the renderer-preserving build's content and options scripts measured 15,483 and 1,328 bytes. The final Svelte build measured 54,927 and 40,408 bytes, respectively. The unsigned ZIP grew from 53,442 to 133,196 bytes.

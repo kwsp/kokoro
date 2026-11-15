@@ -119,6 +119,65 @@ describe("reader controls", () => {
     ).toBe(false);
     second.close();
   });
+  it("updates diagnostics only while expanded and retains visible list nodes", async () => {
+    vi.useFakeTimers();
+    try {
+      const noop = () => {};
+      const controls = createControls({
+        play: noop,
+        pause: noop,
+        stop: noop,
+        clickMode: noop,
+        settings: noop,
+        close: noop,
+      });
+      const root = controls.host.shadowRoot!;
+      const toggle = root.getElementById(
+        "advanced-toggle",
+      ) as HTMLButtonElement;
+      const details = root.querySelector("#advanced-panel > div")!;
+      const snapshot: Snapshot = {
+        state: "playing",
+        index: 0,
+        total: 1,
+        offset: 0,
+        highlightedIndex: 0,
+        diagnostics: {
+          readyCount: 1,
+          readySeconds: 1,
+          stage: "idle",
+          underruns: 1,
+          totalWaitMs: 0,
+          gap: { index: 0, started: performance.now(), stage: "waiting" },
+          sentences: [{ index: 0, text: "Hello", status: "ready" }],
+        },
+      };
+      controls.update(snapshot);
+      expect(details.querySelector("p")).toBeNull();
+      toggle.click();
+      expect(details.textContent).toContain("Ready ahead: 1 sentences");
+      const item = details.querySelector("li");
+      const before = details.textContent;
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(details.textContent).not.toBe(before);
+      expect(details.querySelector("li")).toBe(item);
+      toggle.click();
+      const collapsed = details.textContent;
+      controls.update({
+        ...snapshot,
+        diagnostics: { ...snapshot.diagnostics!, readyCount: 2 },
+      });
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(details.textContent).toBe(collapsed);
+      expect(details.querySelector("li")).toBe(item);
+      toggle.click();
+      expect(details.textContent).toContain("Ready ahead: 2 sentences");
+      expect(details.querySelector("li")).toBe(item);
+      controls.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("clears the elapsed timer on collapse and close", () => {
     vi.useFakeTimers();
     try {

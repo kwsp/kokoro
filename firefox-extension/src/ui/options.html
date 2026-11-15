@@ -6,35 +6,6 @@
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
-    <h1>Kokoro settings</h1>
-    <p>Connect to your local speech server.</p>
-    <form id="settings">
-      <label>Server URL<input id="base-url" type="url" required /></label>
-      <label
-        >Server token<input
-          id="token"
-          type="password"
-          autocomplete="off"
-          required
-      /></label>
-      <label
-        >Voice<input id="voice" list="voices" required /><datalist
-          id="voices"
-        ></datalist
-      ></label>
-      <label
-        >Speed<input
-          id="speed"
-          type="number"
-          min="0.5"
-          max="2"
-          step="0.1"
-          required
-      /></label>
-      <button type="submit">Save settings</button>
-      <button type="button" id="test">Test connection</button>
-    </form>
-    <p id="status" role="status"></p>
     <script src="options.js"></script>
   </body>
 </html>

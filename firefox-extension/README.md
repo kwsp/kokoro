@@ -62,6 +62,8 @@ The extension entry points are `src/background.ts`, `src/content.ts`, and `src/u
 
 The build bundles toolbar CSS into the shadow root and highlight CSS into the content script. The options page links to its packaged CSS file.
 
+Esbuild compiles the Svelte UI with the compiler's DOM-tree fragment mode. Vitest compiles toolbar components with the same fragment mode and uses the Svelte browser runtime. Run `npm run typecheck` to check both TypeScript and Svelte components.
+
 ## Read and interact
 
 The extension opens its settings page when first installed.
