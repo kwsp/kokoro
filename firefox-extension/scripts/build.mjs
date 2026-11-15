@@ -1,5 +1,6 @@
 import { build } from "esbuild";
-import { mkdir, copyFile } from "node:fs/promises";
+import { compile } from "svelte/compiler";
+import { mkdir, copyFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
@@ -14,6 +15,20 @@ await build({
   },
   bundle: true,
   loader: { ".css": "text" },
+  plugins: [
+    {
+      name: "svelte",
+      setup(build) {
+        build.onLoad({ filter: /\.svelte$/ }, async ({ path }) => ({
+          contents: compile(await readFile(path, "utf8"), {
+            filename: path,
+            fragments: "tree",
+          }).js.code,
+          loader: "js",
+        }));
+      },
+    },
+  ],
   alias: { "@mozilla/readability": "./src/reading/readability-vendor.ts" },
   outdir,
   target: "firefox142",
