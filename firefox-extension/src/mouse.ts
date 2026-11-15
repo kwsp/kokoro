@@ -2,7 +2,9 @@ import { HOST_ID } from "./controls";
 import { HoverHighlight } from "./highlighting";
 import { readableText, type ReadingSegment } from "./mapping";
 
-const INTERACTIVE = `a,button,input,textarea,select,option,label,summary,audio,video,[onclick],[draggable="true"],[role="button"],[role="link"],[role="checkbox"],[role="radio"],[role="switch"],[role="slider"],[role="textbox"],[role="combobox"],[contenteditable]:not([contenteditable="false"]),[tabindex]:not([tabindex="-1"]),#${HOST_ID}`;
+// Editors and focusable/delegated-handler containers can contain ordinary prose.
+// Preserve concrete controls while click mode explicitly owns prose clicks.
+const INTERACTIVE = `a,button,input,textarea,select,option,label,summary,audio,video,[role="button"],[role="link"],[role="checkbox"],[role="radio"],[role="switch"],[role="slider"],[role="combobox"],#${HOST_ID}`;
 
 export function ordinaryPointer(event: MouseEvent): boolean {
   return (
@@ -38,7 +40,7 @@ export function segmentAtPoint(
     !caret ||
     caret.offsetNode.nodeType !== Node.TEXT_NODE ||
     !caret.offsetNode.isConnected ||
-    !readableText(caret.offsetNode as Text, true)
+    !readableText(caret.offsetNode as Text, "selection")
   )
     return;
   const index = segments.findIndex((segment) =>
@@ -79,6 +81,21 @@ interface Preview {
   close(): void;
 }
 
+export interface ClickScope {
+  segments: readonly ReadingSegment[];
+  seek(index: number): void;
+}
+
+interface ClickReaderOptions {
+  preview?: Preview;
+  hitTest?: typeof segmentAtPoint;
+  requestFrame?: (callback: FrameRequestCallback) => number;
+  cancelFrame?: (id: number) => void;
+  scopeForTarget?: (target: Element) => ClickScope | undefined;
+  unavailable?: () => void;
+  available?: () => void;
+}
+
 export class ClickReader {
   private enabled = false;
   private frame?: number;
@@ -90,18 +107,25 @@ export class ClickReader {
     dragged: boolean;
     selection: ReturnType<typeof selectionPosition>;
   };
+  private preview: Preview;
+  private hitTest: typeof segmentAtPoint;
+  private requestFrame: (callback: FrameRequestCallback) => number;
+  private cancelFrame: (id: number) => void;
 
   constructor(
     private document: Document,
     private segments: () => readonly ReadingSegment[],
     private seek: (index: number) => void,
     private modeChanged: (enabled: boolean) => void,
-    private preview: Preview = new HoverHighlight(),
-    private hitTest = segmentAtPoint,
-    private requestFrame = (callback: FrameRequestCallback) =>
-      window.requestAnimationFrame(callback),
-    private cancelFrame = (id: number) => window.cancelAnimationFrame(id),
+    private options: ClickReaderOptions = {},
   ) {
+    this.preview = options.preview ?? new HoverHighlight();
+    this.hitTest = options.hitTest ?? segmentAtPoint;
+    this.requestFrame =
+      options.requestFrame ??
+      ((callback) => window.requestAnimationFrame(callback));
+    this.cancelFrame =
+      options.cancelFrame ?? ((id) => window.cancelAnimationFrame(id));
     document.addEventListener("mousedown", this.onDown, true);
     document.addEventListener("mousemove", this.onMove, true);
     document.addEventListener("click", this.onClick, true);
@@ -110,6 +134,17 @@ export class ClickReader {
     document.addEventListener("keydown", this.onKey, true);
     document.defaultView?.addEventListener("blur", this.onLeave);
     document.defaultView?.addEventListener("resize", this.onLeave);
+  }
+
+  get isEnabled() {
+    return this.enabled;
+  }
+
+  private scopeFor(target: EventTarget | null): ClickScope | undefined {
+    if (!(target instanceof Element)) return;
+    return this.options.scopeForTarget
+      ? this.options.scopeForTarget(target)
+      : { segments: this.segments(), seek: this.seek };
   }
 
   toggle() {
@@ -176,9 +211,14 @@ export class ClickReader {
         !readableTarget(pending.target, this.document)
       )
         return;
-      const segments = this.segments();
-      const index = this.hitTest(this.document, segments, pending.x, pending.y);
-      this.preview.show(index === undefined ? undefined : segments[index]);
+      const scope = this.scopeFor(pending.target);
+      const index = scope
+        ? this.hitTest(this.document, scope.segments, pending.x, pending.y)
+        : undefined;
+      if (index !== undefined) this.options.available?.();
+      this.preview.show(
+        index === undefined ? undefined : scope?.segments[index],
+      );
     });
   };
 
@@ -206,18 +246,25 @@ export class ClickReader {
         selection.focusOffset !== down.selection?.focusOffset)
     )
       return;
-    const index = this.hitTest(
-      this.document,
-      this.segments(),
-      event.clientX,
-      event.clientY,
-    );
-    if (index === undefined) return;
+    const scope = this.scopeFor(event.target);
+    const index = scope
+      ? this.hitTest(
+          this.document,
+          scope.segments,
+          event.clientX,
+          event.clientY,
+        )
+      : undefined;
+    if (!scope || index === undefined) {
+      this.options.unavailable?.();
+      return;
+    }
+    this.options.available?.();
     event.preventDefault();
     event.stopPropagation();
     this.clearPreview();
     // Preserve the click's user activation through the synchronous seek call.
-    this.seek(index);
+    scope.seek(index);
   };
 
   private onKey = (event: KeyboardEvent) => {

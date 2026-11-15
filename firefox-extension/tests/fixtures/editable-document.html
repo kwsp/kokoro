@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Editable document click reading</title>
+    <style>
+      body { font: 18px/1.6 system-ui; margin: 32px; }
+      [contenteditable] { margin: 16px 0; padding: 8px; border: 1px solid #aaa; }
+      [role="document"] { max-width: 750px; }
+    </style>
+  </head>
+  <body>
+    <nav>Workspace navigation.</nav>
+    <main tabindex="0">
+      <div role="document" tabindex="0" onclick="this.dataset.clicks = String(Number(this.dataset.clicks || 0) + 1)">
+        <div contenteditable="true" role="textbox" id="editor-first"><span id="first-line">First editable paragraph.</span></div>
+        <div contenteditable="true" role="textbox" id="editor-second"><span id="second-line">Second editable paragraph.</span> <span id="third-line">Continue through the document.</span></div>
+        <div contenteditable="true" role="textbox"><a id="editor-link" href="#destination">Document link.</a></div>
+        <button id="editor-button" onclick="this.dataset.clicks = String(Number(this.dataset.clicks || 0) + 1)">Document action</button>
+      </div>
+      <aside>Unrelated document sidebar.</aside>
+    </main>
+    <input id="ordinary-input" aria-label="Ordinary input">
+    <div id="destination">Link destination.</div>
+  </body>
+</html>

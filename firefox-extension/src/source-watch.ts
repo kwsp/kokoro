@@ -1,4 +1,4 @@
-import { readableText, type ReadingSegment } from "./mapping";
+import { readableText, type ReadingSegment, type TextMode } from "./mapping";
 
 /** Watch source text and visibility, rather than reacting to our outline styles. */
 export function watchSource(
@@ -6,6 +6,7 @@ export function watchSource(
   segments: readonly ReadingSegment[],
   selectionOnly: boolean,
   changed: () => void,
+  mode: TextMode = selectionOnly ? "selection" : "page",
 ) {
   const selectedNodes = [
     ...new Set(
@@ -18,7 +19,7 @@ export function watchSource(
     if (!root.isConnected) return [];
     if (selectionOnly)
       return selectedNodes
-        .filter((node) => node.isConnected && readableText(node, true))
+        .filter((node) => node.isConnected && readableText(node, mode))
         .map((node) => ({ node, text: node.data }));
     const walker = root.ownerDocument.createTreeWalker(
       root,
@@ -26,7 +27,7 @@ export function watchSource(
     );
     const result: { node: Text; text: string }[] = [];
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (readableText(node as Text) && node.textContent?.trim())
+      if (readableText(node as Text, mode) && node.textContent?.trim())
         result.push({ node: node as Text, text: (node as Text).data });
     }
     return result;

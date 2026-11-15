@@ -87,13 +87,21 @@ If the CSS Highlight API is unavailable, the reader outlines the current block a
 No audio starts merely because the extension is activated.
 
 Enable **Click to read** to preview a sentence under the pointer and click it to start reading there.
+The bar shows “Click a sentence · Esc to exit” while the mode is enabled, and explains clicks that do not target a readable sentence.
+You do not need to press Play first.
+Enabling the mode adopts a newly selected passage directly, without requiring Read selection first.
 The mode uses the current reading scope, so selection reading stays within the selected passage.
-In editable documents, use explicit selection and the reader buttons; click-to-read continues to preserve ordinary editing clicks.
+Click mode supports prose inside focusable containers and editable documents.
+Without a selected passage, hovering editable text previews its containing document, article, or main landmark, falling back to that editor when no such landmark exists.
+Hovering does not interrupt playback or send editor text to the server; clicking starts at the chosen sentence and continues through that document scope.
+Only one editor preview is retained, and text or visibility changes invalidate it.
+Normal Play still excludes editors and unsent composers until a passage is explicitly selected or editor text is clicked in this mode.
 Seeking works while preparing, playing, or paused and discards obsolete audio.
 The green hover preview has lower priority than the speaking highlight.
 Press Escape to leave click mode without stopping playback.
 Stop clears the preview and resets reading while leaving click mode enabled; toggle the button or press Escape to return to ordinary clicking.
-Links, buttons, typing, editable areas, details toggles, modified clicks, right/middle clicks, and drag selections keep their normal behavior.
+Links, buttons, form inputs, details toggles, modified clicks, right/middle clicks, and drag selections keep their normal behavior.
+While click mode is enabled, ordinary clicks on editable document text start speech; turn the mode off or press Escape to restore normal editing clicks.
 Clicks outside actual text rectangles do not select a nearby sentence.
 When the Highlight API is absent, click seeking still works with the spoken-block outline, but hover preview is unavailable.
 

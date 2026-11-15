@@ -23,12 +23,13 @@ export interface ReadingSegment {
 }
 
 export const MAX_SEGMENT_CODEPOINTS = 1000;
+export type TextMode = "page" | "selection" | "document";
 const BLOCKS =
   "p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,dd,dt,figcaption,details,summary,div,section,article,main";
 const EXCLUDED =
   'script,style,noscript,template,button,input,textarea,select,[hidden],[aria-hidden="true"],#kokoro-reader-controls';
 const PAGE_EXCLUDED =
-  'nav,footer,aside,[role="navigation"],[role="button"],[role="menu"],[role="toolbar"],[contenteditable]:not([contenteditable="false"])';
+  'nav,footer,aside,[role="navigation"],[role="button"],[role="menu"],[role="toolbar"]';
 
 function hiddenByDetails(node: Node): boolean {
   for (
@@ -45,12 +46,24 @@ function hiddenByDetails(node: Node): boolean {
   return false;
 }
 
-export function readableElement(parent: Element, selected = false): boolean {
+export function readableElement(
+  parent: Element,
+  mode: TextMode = "page",
+): boolean {
   if (parent.closest(EXCLUDED)) return false;
-  if (!selected && parent.closest(PAGE_EXCLUDED)) return false;
+  if (mode !== "selection" && parent.closest(PAGE_EXCLUDED)) return false;
+  if (
+    mode === "page" &&
+    parent.closest('[contenteditable]:not([contenteditable="false"])')
+  )
+    return false;
   if (hiddenByDetails(parent)) return false;
   const header = parent.closest("header");
-  if (!selected && header && !header.closest('article,main,[role="main"]'))
+  if (
+    mode !== "selection" &&
+    header &&
+    !header.closest('article,main,[role="main"],[role="document"]')
+  )
     return false;
   for (
     let element: Element | null = parent;
@@ -70,10 +83,10 @@ export function readableElement(parent: Element, selected = false): boolean {
   return true;
 }
 
-export function readableText(node: Text, selected = false): boolean {
+export function readableText(node: Text, mode: TextMode = "page"): boolean {
   if (hiddenByDetails(node)) return false;
   return Boolean(
-    node.parentElement && readableElement(node.parentElement, selected),
+    node.parentElement && readableElement(node.parentElement, mode),
   );
 }
 
@@ -213,7 +226,7 @@ export function segmentsFromRanges(ranges: readonly Range[]): ReadingSegment[] {
       const text = node as Text;
       // Explicit selection can include an editor or application sidebar that
       // automatic article extraction intentionally leaves out.
-      if (readableText(text, true) && range.intersectsNode(text)) {
+      if (readableText(text, "selection") && range.intersectsNode(text)) {
         const start = range.startContainer === text ? range.startOffset : 0;
         const end = range.endContainer === text ? range.endOffset : text.length;
         if (start < end) {

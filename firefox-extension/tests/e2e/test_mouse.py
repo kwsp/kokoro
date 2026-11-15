@@ -117,9 +117,12 @@ def test_click_mode_preserves_page_controls_links_and_typing(configured, server)
         field.send_keys("typing remains normal")
         assert field.get_attribute("value") == "typing remains normal"
     editor = driver.find_element(By.ID, "page-editor")
+    # Editor text clicks now explicitly read while click mode is enabled.
+    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
     editor.click()
     editor.send_keys(" added")
     assert "added" in editor.text
+    reader.click("click-mode")
     driver.find_element(By.ID, "page-summary").click()
     assert driver.find_element(By.ID, "page-details").get_attribute("open") is not None
     driver.find_element(By.ID, "link").click()

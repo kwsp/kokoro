@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { extractPage } from "../../src/extraction";
+import { extractEditor, extractPage } from "../../src/extraction";
 import { segmentsFromRanges } from "../../src/mapping";
 import { sameRanges, watchSource } from "../../src/source-watch";
 beforeEach(() => {
@@ -11,6 +11,32 @@ const settle = async () => {
   await Promise.resolve();
 };
 describe("source lifecycle", () => {
+  it.each(["edit", "append", "hide"])(
+    "tracks the full explicit document when editor content changes: %s",
+    async (change) => {
+      document.body.innerHTML =
+        '<main><div contenteditable="true">Editable block.</div><button>Editor action</button></main>';
+      const root = document.querySelector("main")!;
+      const reading = extractEditor(root);
+      const changed = vi.fn();
+      watchSource(root, reading.segments, false, changed, "document");
+      document.querySelector("button")!.textContent = "New action label";
+      await settle();
+      expect(changed).not.toHaveBeenCalled();
+      if (change === "edit")
+        document.querySelector("[contenteditable]")!.firstChild!.textContent =
+          "Changed block.";
+      if (change === "append")
+        root.insertAdjacentHTML(
+          "beforeend",
+          '<div contenteditable="true">New block.</div>',
+        );
+      if (change === "hide")
+        (root.firstElementChild as HTMLElement).hidden = true;
+      await settle();
+      expect(changed).toHaveBeenCalledOnce();
+    },
+  );
   it("ignores owned outlines and unrelated controls but detects text changes", async () => {
     const reading = extractPage(document);
     const changed = vi.fn();

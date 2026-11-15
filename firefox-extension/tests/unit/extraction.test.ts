@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   collectBlocks,
+  editorRootFor,
+  extractEditor,
   extractPage,
   uniqueOrderedMatches,
 } from "../../src/extraction";
@@ -19,6 +21,37 @@ function unmarkedArticle() {
 }
 
 describe("page extraction", () => {
+  it("maps an explicitly targeted document across editor blocks without exposing it to automatic reading", () => {
+    document.body.innerHTML =
+      '<main><p>Read-only response.</p><div role="document"><div contenteditable="true"><p>First editable block.</p></div><div contenteditable="true"><p>Second <em>editable</em> block.</p><a href="#">Document reference.</a><button>Editor action</button></div><aside>Sidebar.</aside><p hidden>Hidden text.</p></div><div contenteditable="true">Unsent composer.</div></main>';
+    const target = document.querySelector("em")!;
+    const root = editorRootFor(target)!;
+    expect(root).toBe(document.querySelector('[role="document"]'));
+    const before = document.body.innerHTML;
+    const reading = extractEditor(root);
+    expect(reading.segments.map((segment) => segment.text)).toEqual([
+      "First editable block.",
+      "Second editable block.",
+      "Document reference.",
+    ]);
+    expect(
+      reading.segments[1]!.ranges.map((range) => range.toString()).join(""),
+    ).toBe("Second editable block.");
+    expect(texts()).toEqual(["Read-only response."]);
+    expect(document.body.innerHTML).toBe(before);
+  });
+  it("uses a containing main or standalone editor and rejects detached editor roots", () => {
+    document.body.innerHTML =
+      '<div role="main"><div contenteditable="true"><span>Block one.</span></div><div contenteditable="true">Block two.</div></div><div contenteditable="plaintext-only" id="standalone"><span>Standalone text.</span></div>';
+    expect(editorRootFor(document.querySelector("span")!)).toBe(
+      document.querySelector('[role="main"]'),
+    );
+    const standalone = document.getElementById("standalone")!;
+    expect(editorRootFor(standalone.firstElementChild!)).toBe(standalone);
+    expect(editorRootFor(document.body)).toBeUndefined();
+    standalone.remove();
+    expect(extractEditor(standalone).segments).toEqual([]);
+  });
   it("prefers article over main and retains an article header heading", () => {
     document.body.innerHTML =
       "<header>Site title</header><main><p>Unrelated main text.</p><article><header><h1>Article heading</h1></header><p>Read <em>this</em> first.</p><h2>Next section</h2><ul><li>A list item.</li></ul><blockquote><p>A quotation.</p></blockquote></article></main><footer>Footer text.</footer>";

@@ -10,6 +10,36 @@ afterEach(() => {
 });
 
 describe("reader controls", () => {
+  it("explains click mode and failed targeting, then restores the prior status when disabled", () => {
+    const noop = () => {};
+    const controls = createControls({
+      play: noop,
+      pause: noop,
+      stop: noop,
+      clickMode: noop,
+      settings: noop,
+      close: noop,
+    });
+    controls.update({
+      state: "error",
+      index: 0,
+      total: 0,
+      offset: 0,
+      highlightedIndex: null,
+      error: "Select a passage.",
+    });
+    const status = controls.host.shadowRoot!.querySelector('[role="status"]')!;
+    controls.setClickMode(true);
+    expect(status.textContent).toContain("Hover over document text");
+    expect(status.textContent).toContain("Esc to exit");
+    controls.setClickFeedback("No readable sentence here.");
+    expect(status.textContent).toContain("No readable sentence here.");
+    controls.setClickFeedback();
+    expect(status.textContent).toContain("Hover over document text");
+    controls.setClickMode(false);
+    expect(status.textContent).toBe("Select a passage.");
+    controls.close();
+  });
   it("offers an explicit selection action without interrupting playback automatically", () => {
     const actions = {
       play: vi.fn(),
@@ -95,7 +125,7 @@ describe("reader controls", () => {
     button.click();
     expect(actions.play).toHaveBeenCalledTimes(3);
     expect(root.querySelector('[role="status"]')!.textContent).toBe(
-      "Start the server.",
+      "Start the server. · Click a sentence · Esc to exit",
     );
     for (const name of ["stop", "settings", "close"] as const) {
       (root.getElementById(name) as HTMLButtonElement).click();

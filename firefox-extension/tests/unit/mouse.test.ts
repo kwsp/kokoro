@@ -32,7 +32,7 @@ function mouse(target: EventTarget, type: string, init: MouseEventInit = {}) {
   target.dispatchEvent(event);
   return event;
 }
-function fixture() {
+function fixture(options: ConstructorParameters<typeof ClickReader>[4] = {}) {
   const values = segments();
   const preview = { show: vi.fn(), close: vi.fn() };
   const seek = vi.fn();
@@ -44,16 +44,13 @@ function fixture() {
     return frames.length;
   });
   const cancel = vi.fn();
-  const reader = new ClickReader(
-    document,
-    () => values,
-    seek,
-    changed,
+  const reader = new ClickReader(document, () => values, seek, changed, {
     preview,
-    hit,
-    request,
-    cancel,
-  );
+    hitTest: hit,
+    requestFrame: request,
+    cancelFrame: cancel,
+    ...options,
+  });
   return {
     reader,
     values,
@@ -84,12 +81,13 @@ describe("pointer policy", () => {
     "<textarea></textarea>",
     "<label>Label</label>",
     "<summary>Summary</summary>",
-    '<span contenteditable="true">Editor</span>',
     '<span role="button">Button</span>',
     '<span role="slider">Slider</span>',
-    '<span tabindex="0">Focusable</span>',
-    '<span onclick="void 0">Handler</span>',
-    '<span draggable="true">Drag</span>',
+    '<span role="link">Link</span>',
+    '<span role="checkbox">Checkbox</span>',
+    '<span role="radio">Radio</span>',
+    '<span role="switch">Switch</span>',
+    '<span role="combobox">Combobox</span>',
     '<div id="kokoro-reader-controls">Controls</div>',
   ])("preserves interactive targets: %s", (html) => {
     document.body.innerHTML = html;
@@ -100,6 +98,23 @@ describe("pointer policy", () => {
         document,
       ),
     ).toBe(false);
+  });
+  it.each([
+    '<div contenteditable="true" role="textbox"><p>Editor prose.</p></div>',
+    '<main tabindex="0"><p>Focusable prose.</p></main>',
+    '<div onclick="void 0"><p>Delegated prose.</p></div>',
+    '<div draggable="true"><p>Movable document block.</p></div>',
+  ])("permits prose in application containers: %s", (html) => {
+    document.body.innerHTML = html;
+    expect(readableTarget(document.querySelector("p"), document)).toBe(true);
+  });
+  it("still protects controls nested inside editable or focusable containers", () => {
+    document.body.innerHTML =
+      '<main tabindex="0"><div contenteditable="true"><a href="#"><span>Link</span></a><button>Action</button><span role="button">Custom action</span></div></main>';
+    for (const element of document.querySelectorAll(
+      "a span,button,[role=button]",
+    ))
+      expect(readableTarget(element, document)).toBe(false);
   });
   it("allows ordinary prose under a skip-link target but excludes shadow roots", () => {
     document.body.innerHTML =
@@ -178,8 +193,7 @@ describe("explicit click mode", () => {
     vi.stubGlobal("requestAnimationFrame", request);
     vi.stubGlobal("cancelAnimationFrame", cancel);
     const reader = new ClickReader(document, segments, vi.fn(), vi.fn(), {
-      show: vi.fn(),
-      close: vi.fn(),
+      preview: { show: vi.fn(), close: vi.fn() },
     });
     reader.toggle();
     mouse(document.querySelector("p")!, "mousemove");
@@ -193,23 +207,117 @@ describe("explicit click mode", () => {
     mouse(p, "mousedown");
     expect(mouse(p, "click").defaultPrevented).toBe(false);
     expect(seek).not.toHaveBeenCalled();
+    expect(reader.isEnabled).toBe(false);
     reader.toggle();
+    expect(reader.isEnabled).toBe(true);
     expect(changed).toHaveBeenCalledWith(true);
     mouse(p, "mousedown");
     expect(mouse(p, "click").defaultPrevented).toBe(true);
     expect(seek).toHaveBeenCalledWith(1);
     reader.close();
+    expect(reader.isEnabled).toBe(false);
   });
-  it("does not seek without a pointer down, from keyboard clicks, or outside text", () => {
+  it("does not seek without a pointer down, from keyboard/double clicks, or outside text", () => {
     const { reader, p, seek, hit } = fixture();
     reader.toggle();
     mouse(p, "click");
     mouse(p, "mousedown");
     mouse(p, "click", { detail: 0 });
+    mouse(p, "mousedown");
+    mouse(p, "click", { detail: 2 });
     hit.mockReturnValue(undefined);
     mouse(p, "mousedown");
     expect(mouse(p, "click").defaultPrevented).toBe(false);
     expect(seek).not.toHaveBeenCalled();
+    reader.close();
+  });
+  it("resolves a transient editor scope for preview and resolves again before synchronous activation", () => {
+    const values = segments();
+    const oldSeek = vi.fn();
+    const newSeek = vi.fn();
+    let scope = { segments: values, seek: oldSeek };
+    const resolve = vi.fn(() => scope);
+    const { reader, p, preview, seek, frames } = fixture({
+      scopeForTarget: resolve,
+    });
+    p.setAttribute("contenteditable", "true");
+    reader.toggle();
+    mouse(p, "mousemove");
+    frames[0]!(0);
+    expect(resolve).toHaveBeenCalledWith(p);
+    expect(preview.show).toHaveBeenLastCalledWith(values[1]);
+    expect(oldSeek).not.toHaveBeenCalled();
+    expect(seek).not.toHaveBeenCalled();
+    scope = { segments: values, seek: newSeek };
+    expect(mouse(p, "mousedown").defaultPrevented).toBe(false);
+    expect(mouse(p, "click").defaultPrevented).toBe(true);
+    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(newSeek).toHaveBeenCalledWith(1);
+    expect(oldSeek).not.toHaveBeenCalled();
+    expect(seek).not.toHaveBeenCalled();
+    reader.close();
+  });
+  it("clears targeting feedback only after finding readable text", () => {
+    const available = vi.fn();
+    const unavailable = vi.fn();
+    const { reader, p, hit, frames } = fixture({ available, unavailable });
+    reader.toggle();
+    hit.mockReturnValue(undefined);
+    mouse(p, "mousedown");
+    mouse(p, "click");
+    expect(unavailable).toHaveBeenCalledOnce();
+    mouse(p, "mousemove");
+    frames.at(-1)!(0);
+    expect(available).not.toHaveBeenCalled();
+    hit.mockReturnValue(0);
+    mouse(p, "mousemove");
+    frames.at(-1)!(0);
+    expect(available).toHaveBeenCalledOnce();
+    mouse(p, "mousedown");
+    mouse(p, "click");
+    expect(available).toHaveBeenCalledTimes(2);
+    reader.close();
+  });
+  it.each(["missing scope", "outside text"])(
+    "reports %s only on an eligible ordinary click",
+    (kind) => {
+      const unavailable = vi.fn();
+      const options =
+        kind === "missing scope"
+          ? { scopeForTarget: () => undefined, unavailable }
+          : { unavailable };
+      const { reader, p, hit, frames, seek } = fixture(options);
+      hit.mockReturnValue(undefined);
+      reader.toggle();
+      mouse(p, "mousemove");
+      frames[0]!(0);
+      expect(unavailable).not.toHaveBeenCalled();
+      mouse(p, "mousedown");
+      expect(mouse(p, "click").defaultPrevented).toBe(false);
+      expect(unavailable).toHaveBeenCalledOnce();
+      const button = document.createElement("button");
+      p.append(button);
+      mouse(button, "mousedown");
+      mouse(button, "click");
+      mouse(p, "mousedown");
+      mouse(p, "click", { ctrlKey: true });
+      expect(unavailable).toHaveBeenCalledOnce();
+      expect(seek).not.toHaveBeenCalled();
+      reader.close();
+    },
+  );
+  it("returns editable prose clicks to the page immediately on Escape", () => {
+    const { reader, p, seek } = fixture();
+    p.setAttribute("contenteditable", "true");
+    reader.toggle();
+    expect(mouse(p, "mousedown").defaultPrevented).toBe(false);
+    expect(mouse(p, "click").defaultPrevented).toBe(true);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(reader.isEnabled).toBe(false);
+    expect(mouse(p, "mousedown").defaultPrevented).toBe(false);
+    expect(mouse(p, "click").defaultPrevented).toBe(false);
+    expect(seek).toHaveBeenCalledOnce();
+    expect(p.getAttribute("contenteditable")).toBe("true");
     reader.close();
   });
   it("preserves modified clicks and drags even when the pointer returns to its start", () => {

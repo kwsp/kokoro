@@ -8,11 +8,12 @@ import {
   type MappedText,
   type ReadingSegment,
   type TextSlice,
+  type TextMode,
 } from "./mapping";
 
 export interface ReadingDocument {
   root: Element;
-  source: "article" | "main" | "readability";
+  source: "article" | "main" | "readability" | "editor";
   segments: ReadingSegment[];
 }
 
@@ -27,7 +28,10 @@ const AMBIGUOUS_MESSAGE =
   "Could not confidently identify the article. Select a passage, then press Read selection.";
 
 /** Consecutive groups preserve DOM order even when prose blocks are nested. */
-export function collectBlocks(root: Element): MappedBlock[] {
+export function collectBlocks(
+  root: Element,
+  mode: TextMode = "page",
+): MappedBlock[] {
   const groups: { element: Element; slices: TextSlice[] }[] = [];
   const walker = root.ownerDocument.createTreeWalker(
     root,
@@ -35,7 +39,7 @@ export function collectBlocks(root: Element): MappedBlock[] {
   );
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const text = node as Text;
-    if (!readableText(text)) continue;
+    if (!readableText(text, mode)) continue;
     const nearest = blockFor(text);
     const element = root.contains(nearest) ? nearest : root;
     let group = groups.at(-1);
@@ -57,6 +61,28 @@ function toSegments(blocks: readonly MappedBlock[]): ReadingSegment[] {
       block: element,
     })),
   );
+}
+
+/** Explicit pointer targeting can read editor blocks without opting every
+ * editor (including unsent composers) into automatic page extraction. */
+export function editorRootFor(target: Element): Element | undefined {
+  const editor = target.closest(
+    '[contenteditable]:not([contenteditable="false"])',
+  );
+  if (!editor) return;
+  return (
+    editor.closest('[role="document"],article,main,[role="main"]') ?? editor
+  );
+}
+
+export function extractEditor(root: Element): ReadingDocument {
+  return {
+    root,
+    source: "editor",
+    segments: root.isConnected
+      ? toSegments(collectBlocks(root, "document"))
+      : [],
+  };
 }
 
 function semanticRoots(document: Document, selector: string) {

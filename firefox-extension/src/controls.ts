@@ -36,6 +36,8 @@ export function createControls(actions: {
   };
   let selectionAvailable = false;
   let highlightNote: string | undefined;
+  let clickModeEnabled = false;
+  let clickFeedback: string | undefined;
   const addButton = (id: string, text: string, click: () => void) => {
     const button = document.createElement("button");
     button.id = id;
@@ -86,6 +88,12 @@ export function createControls(actions: {
           ? `Sentence ${next.index + 1} of ${next.total} · ${label}`
           : "Select a passage, then press Read selection."));
     if (note) status.textContent += ` · ${note}`;
+    if (clickModeEnabled) {
+      if (clickFeedback) status.textContent = clickFeedback;
+      else if (!next.total)
+        status.textContent = "Hover over document text to choose a sentence.";
+      status.textContent += " · Click a sentence · Esc to exit";
+    }
   }
   update(snapshot);
   return {
@@ -95,8 +103,17 @@ export function createControls(actions: {
       selectionAvailable = available;
       update(snapshot, highlightNote);
     },
-    setClickMode: (enabled: boolean) =>
-      clickMode.setAttribute("aria-pressed", String(enabled)),
+    setClickMode: (enabled: boolean) => {
+      clickModeEnabled = enabled;
+      clickFeedback = undefined;
+      clickMode.setAttribute("aria-pressed", String(enabled));
+      update(snapshot, highlightNote);
+    },
+    setClickFeedback: (message?: string) => {
+      if (clickFeedback === message) return;
+      clickFeedback = message;
+      update(snapshot, highlightNote);
+    },
     focus: () => play.focus(),
     close: () => host.remove(),
   };

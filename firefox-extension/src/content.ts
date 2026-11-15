@@ -1,5 +1,10 @@
 import { WebAudioPlayer } from "./audio";
-import { extractPage } from "./extraction";
+import {
+  editorRootFor,
+  extractEditor,
+  extractPage,
+  type ReadingDocument,
+} from "./extraction";
 import { createControls, HOST_ID } from "./controls";
 import { SpeakingHighlight } from "./highlighting";
 import {
@@ -10,7 +15,7 @@ import {
 import { ReadingSession, createRequestId } from "./session";
 import { watchSource, sameRanges } from "./source-watch";
 import { watchSelection } from "./selection";
-import { ClickReader } from "./mouse";
+import { ClickReader, type ClickScope } from "./mouse";
 
 if (!document.getElementById(HOST_ID)) mount();
 
@@ -21,6 +26,9 @@ function mount() {
   let scopeRanges: Range[] = [];
   let pendingRanges: Range[] = [];
   let selectionScope = false;
+  let editorRoot: Element | undefined;
+  let editorPreview: ReadingDocument | undefined;
+  let unwatchPreview: (() => void) | undefined;
   let invalidated = false;
   let unwatch: (() => void) | undefined;
   let closed = false;
@@ -81,15 +89,7 @@ function mount() {
   );
   const controls = createControls({
     play: () => {
-      const ranges = pendingRanges.length
-        ? pendingRanges
-        : captureSelection(window.getSelection());
-      if (isNewSelection(ranges)) {
-        selectionScope = true;
-        scopeRanges = ranges;
-        refresh();
-      } else if (invalidated) refresh();
-      else if (!segments.length) activate();
+      prepareReading();
       if (segments.length) session.play();
     },
     pause: () => session.pause(),
@@ -97,7 +97,10 @@ function mount() {
       clickReader.clearPreview();
       session.stop();
     },
-    clickMode: () => clickReader.toggle(),
+    clickMode: () => {
+      if (!clickReader.isEnabled) prepareReading();
+      clickReader.toggle();
+    },
     settings: () => {
       void browser.runtime.sendMessage({ type: "settings:open" });
     },
@@ -107,7 +110,18 @@ function mount() {
     document,
     () => segments,
     (index) => session.seek(index),
-    (enabled) => controls.setClickMode(enabled),
+    (enabled) => {
+      if (!enabled) clearEditorPreview();
+      controls.setClickMode(enabled);
+    },
+    {
+      scopeForTarget: clickScope,
+      available: () => controls.setClickFeedback(),
+      unavailable: () =>
+        controls.setClickFeedback(
+          "No readable sentence here. Try selecting a passage.",
+        ),
+    },
   );
   const stopWatchingSelection = watchSelection(
     document,
@@ -127,8 +141,59 @@ function mount() {
     );
   }
 
+  function prepareReading() {
+    const ranges = pendingRanges.length
+      ? pendingRanges
+      : captureSelection(window.getSelection());
+    if (isNewSelection(ranges)) {
+      selectionScope = true;
+      editorRoot = undefined;
+      scopeRanges = ranges;
+      refresh();
+    } else if (invalidated || !segments.length) refresh();
+  }
+
+  function clearEditorPreview() {
+    unwatchPreview?.();
+    unwatchPreview = undefined;
+    editorPreview = undefined;
+  }
+
+  function clickScope(target: Element): ClickScope {
+    if (invalidated) refresh();
+    const active = { segments, seek: (index: number) => session.seek(index) };
+    // A chosen passage remains a strict boundary, even inside an editor.
+    if (selectionScope) return active;
+    const root = editorRootFor(target);
+    if (!root || (root === editorRoot && segments.length)) return active;
+    if (editorPreview?.root !== root) {
+      clearEditorPreview();
+      editorPreview = extractEditor(root);
+      unwatchPreview = watchSource(
+        root,
+        editorPreview.segments,
+        false,
+        () => {
+          clearEditorPreview();
+          clickReader.clearPreview();
+        },
+        "document",
+      );
+    }
+    return {
+      segments: editorPreview.segments,
+      seek: (index) => {
+        editorRoot = root;
+        scopeRanges = [];
+        refresh();
+        session.seek(index);
+      },
+    };
+  }
+
   function refresh() {
     unwatch?.();
+    clearEditorPreview();
     clickReader.reset();
     invalidated = false;
     pendingRanges = [];
@@ -139,6 +204,10 @@ function mount() {
       if (selectionScope) {
         segments = segmentsFromRanges(scopeRanges);
         root = document.body;
+      } else if (editorRoot) {
+        const reading = extractEditor(editorRoot);
+        segments = reading.segments;
+        root = reading.root;
       } else {
         const reading = extractPage(document);
         segments = reading.segments;
@@ -148,13 +217,19 @@ function mount() {
         extractionError =
           "No readable text selected. Select a passage, then press Read selection.";
       else
-        unwatch = watchSource(root, segments, selectionScope, () => {
-          invalidated = true;
-          extractionError = "Page changed; press Play to refresh.";
-          segments = [];
-          clickReader.reset();
-          session.replaceSegments([]);
-        });
+        unwatch = watchSource(
+          root,
+          segments,
+          selectionScope,
+          () => {
+            invalidated = true;
+            extractionError = "Page changed; press Play to refresh.";
+            segments = [];
+            clickReader.reset();
+            session.replaceSegments([]);
+          },
+          editorRoot && !selectionScope ? "document" : undefined,
+        );
     } catch (error) {
       segments = [];
       extractionError =
@@ -171,6 +246,7 @@ function mount() {
     const newSelection = isNewSelection(ranges);
     if (newSelection || selectionOnly || !segments.length) {
       selectionScope = ranges.length > 0 || selectionOnly;
+      editorRoot = undefined;
       scopeRanges = ranges;
       refresh();
     }
@@ -207,6 +283,7 @@ function mount() {
     if (closed) return;
     closed = true;
     stopWatchingSelection();
+    clearEditorPreview();
     unwatch?.();
     clickReader.close();
     session.close();

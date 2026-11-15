@@ -198,3 +198,29 @@ The primary agent reviewed screenshots showing the Read selection prompt before 
 Backend code and the audio transport were unchanged.
 The extension was rebuilt in `dist/` and its temporary-install ZIP was regenerated.
 The user was asked to reload the extension and page, then retry the original workflow on their actual Notion or ChatGPT page; the automated reproductions use local document and conversation fixtures.
+
+### Follow-up: click-to-read in editable documents and web apps
+
+The user confirmed selection reading now works and that click-to-read works on articles but not ChatGPT or Notion.
+They explicitly approved temporarily taking over editable document text clicks while click mode is enabled.
+Three real Firefox failures reproduced focusable conversation containers being rejected, a newly selected editor passage not being adopted by the mode, and an unselected editable document having no clickable scope.
+
+A delegated pointer change replaced generic focusability, delegated-handler, draggable, and editor exclusions with concrete native and ARIA control exclusions.
+The pointer controller accepts a synchronous scope resolver, so hovering can preview a document without choosing it for playback and clicking can start within that document using the original user activation.
+Enabling the mode now prepares a pending selection without requiring Play or Read selection first.
+Selected passages remain strict reading boundaries.
+Editable documents use their nearest document, article, or main landmark, falling back to the editor itself, and retain original DOM ranges across blocks.
+Automatic page extraction continues to exclude editable text and composers until the user explicitly chooses them.
+One editor preview is cached and watched for text or visibility changes, then cleared on replacement, mode exit, or Close.
+
+The bar shows a click-mode instruction and Escape hint, plus an actionable message for an eligible click outside readable text.
+A browser regression caught hover resolution clearing that message too early; feedback now clears only when readable text is actually found.
+Native editor links are verified by checking that their click reaches the page unprevented, since Firefox normally treats a link inside contenteditable as an editing click rather than navigation.
+Escape and disabling the mode restore ordinary editor clicks without changing contenteditable attributes or rewriting the page.
+
+Unit coverage includes targeting policy, transient scopes, feedback, document mapping, and full-document mutation watching.
+Real pointer cases cover starting without Play, pending selections, passive hover during playback, editor preview invalidation, playback recovery after an edit, selection boundaries, controls, drag selection, and editing after Escape.
+Validation passed: 179 unit tests, TypeScript, ESLint, Prettier, Black, Ruff, build, and scoped web-ext with zero errors and warnings.
+The final Firefox suite passed all 43 cases in 232.62 seconds, including real Kokoro CPU and MPS playback, with no skipped tests.
+All eleven headed click-mode, keyboard, and presentation cases passed in 52.68 seconds, and the primary agent reviewed the editable-sentence hover and mode-instruction screenshot.
+The development build and temporary-install ZIP were regenerated for the user to retry on their actual Notion and ChatGPT pages.
