@@ -1,10 +1,9 @@
-import { HOST_ID } from "../ui/controls";
 import { HoverHighlight } from "./highlighting";
 import { readableText, type ReadingSegment } from "./mapping";
 
 // Editors and focusable/delegated-handler containers can contain ordinary prose.
 // Preserve concrete controls while click mode explicitly owns prose clicks.
-const INTERACTIVE = `a,button,input,textarea,select,option,label,summary,audio,video,[role="button"],[role="link"],[role="checkbox"],[role="radio"],[role="switch"],[role="slider"],[role="combobox"],#${HOST_ID}`;
+const INTERACTIVE = `a,button,input,textarea,select,option,label,summary,audio,video,[role="button"],[role="link"],[role="checkbox"],[role="radio"],[role="switch"],[role="slider"],[role="combobox"]`;
 
 export function ordinaryPointer(event: MouseEvent): boolean {
   return (
@@ -19,11 +18,13 @@ export function ordinaryPointer(event: MouseEvent): boolean {
 export function readableTarget(
   target: EventTarget | null,
   document: Document,
+  host: HTMLElement,
 ): boolean {
   const element = target instanceof Element ? target : null;
   return Boolean(
     element &&
     element.getRootNode() === document &&
+    !host.contains(element) &&
     !element.closest(INTERACTIVE),
   );
 }
@@ -114,6 +115,7 @@ export class ClickReader {
 
   constructor(
     private document: Document,
+    private host: HTMLElement,
     private segments: () => readonly ReadingSegment[],
     private seek: (index: number) => void,
     private modeChanged: (enabled: boolean) => void,
@@ -171,7 +173,7 @@ export class ClickReader {
     if (
       !this.enabled ||
       !ordinaryPointer(event) ||
-      !readableTarget(event.target, this.document)
+      !readableTarget(event.target, this.document, this.host)
     )
       return;
     this.down = {
@@ -192,7 +194,7 @@ export class ClickReader {
     if (
       event.buttons ||
       !ordinaryPointer(event) ||
-      !readableTarget(event.target, this.document)
+      !readableTarget(event.target, this.document, this.host)
     ) {
       this.clearPreview();
       return;
@@ -208,7 +210,7 @@ export class ClickReader {
       if (
         !this.enabled ||
         !pending ||
-        !readableTarget(pending.target, this.document)
+        !readableTarget(pending.target, this.document, this.host)
       )
         return;
       const scope = this.scopeFor(pending.target);
@@ -233,7 +235,7 @@ export class ClickReader {
       event.detail !== 1 ||
       event.defaultPrevented ||
       !ordinaryPointer(event) ||
-      !readableTarget(event.target, this.document)
+      !readableTarget(event.target, this.document, this.host)
     )
       return;
     const selection = selectionPosition(this.document);
