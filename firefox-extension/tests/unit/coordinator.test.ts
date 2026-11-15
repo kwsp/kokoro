@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SpeechCoordinator, type Owner } from "../../src/coordinator";
+import { SpeechCoordinator, type Owner } from "../../src/speech/coordinator";
 const first: Owner = { tabId: 1, sessionId: "doc1", leaseId: "lease1" };
 const second: Owner = { tabId: 2, sessionId: "doc2", leaseId: "lease2" };
 function deferred<T>() {

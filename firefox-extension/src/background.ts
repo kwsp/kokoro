@@ -1,6 +1,6 @@
 import { loadSettings } from "./settings";
-import { fetchSpeech, MAX_AUDIO_BYTES } from "./transport";
-import { SpeechCoordinator, type Owner } from "./coordinator";
+import { fetchSpeech, MAX_AUDIO_BYTES } from "./speech/transport";
+import { SpeechCoordinator, type Owner } from "./speech/coordinator";
 
 const coordinator = new SpeechCoordinator((owner, type) =>
   browser.tabs.sendMessage(

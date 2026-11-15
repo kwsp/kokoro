@@ -1,4 +1,4 @@
-import type { Settings } from "./settings";
+import type { Settings } from "../settings";
 
 export const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
 

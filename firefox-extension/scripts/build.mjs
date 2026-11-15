@@ -7,9 +7,13 @@ const outdir = process.env.KOKORO_EXTENSION_OUT_DIR ?? "dist";
 const testFallback = process.env.KOKORO_TEST_HIGHLIGHT_FALLBACK === "1";
 await mkdir(outdir, { recursive: true });
 await build({
-  entryPoints: ["src/background.ts", "src/content.ts", "src/options.ts"],
+  entryPoints: {
+    background: "src/background.ts",
+    content: "src/content.ts",
+    options: "src/ui/options.ts",
+  },
   bundle: true,
-  alias: { "@mozilla/readability": "./src/readability-vendor.ts" },
+  alias: { "@mozilla/readability": "./src/reading/readability-vendor.ts" },
   outdir,
   target: "firefox142",
   format: "iife",
@@ -17,7 +21,7 @@ await build({
   define: testFallback ? { Highlight: "undefined" } : {},
 });
 await Promise.all(
-  ["manifest.json", "src/options.html", "src/icon.svg"].map((path) =>
+  ["manifest.json", "src/ui/options.html", "src/assets/icon.svg"].map((path) =>
     copyFile(path, join(outdir, path.split("/").at(-1))),
   ),
 );

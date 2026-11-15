@@ -3,7 +3,7 @@ import {
   captureSelection,
   segmentsFromRanges,
   MAX_SEGMENT_CODEPOINTS,
-} from "../../src/mapping";
+} from "../../src/reading/mapping";
 
 beforeEach(() => {
   document.body.innerHTML = "";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { watchSelection } from "../../src/selection";
+import { watchSelection } from "../../src/reading/selection";
 
 afterEach(() => {
   document.body.replaceChildren();

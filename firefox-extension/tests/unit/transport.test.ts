@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { defaults } from "../../src/settings";
-import { fetchSpeech, MAX_AUDIO_BYTES } from "../../src/transport";
+import { fetchSpeech, MAX_AUDIO_BYTES } from "../../src/speech/transport";
 
 describe("speech transport", () => {
   const settings = { ...defaults, token: "local-secret" };

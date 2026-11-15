@@ -1,4 +1,4 @@
-import { HOST_ID } from "./controls";
+import { HOST_ID } from "../ui/controls";
 import { HoverHighlight } from "./highlighting";
 import { readableText, type ReadingSegment } from "./mapping";
 

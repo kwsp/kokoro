@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HoverHighlight } from "../../src/highlighting";
-import { segmentsFromRanges } from "../../src/mapping";
+import { HoverHighlight } from "../../src/reading/highlighting";
+import { segmentsFromRanges } from "../../src/reading/mapping";
 import {
   ClickReader,
   ordinaryPointer,
   readableTarget,
   segmentAtPoint,
-} from "../../src/mouse";
+} from "../../src/reading/mouse";
 
 beforeEach(() => {
   document.body.innerHTML =

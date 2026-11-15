@@ -3,7 +3,7 @@ import {
   MAX_BUFFER_BYTES,
   wavDecodedBytes,
   WebAudioPlayer,
-} from "../../src/audio";
+} from "../../src/speech/audio";
 
 function wav(samples = 240) {
   const bytes = new ArrayBuffer(44 + samples * 2);

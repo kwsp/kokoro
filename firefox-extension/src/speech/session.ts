@@ -1,5 +1,5 @@
 import { MAX_BUFFER_BYTES, wavDecodedBytes, type AudioAdapter } from "./audio";
-import type { ReadingSegment } from "./mapping";
+import type { ReadingSegment } from "../reading/mapping";
 import { MAX_AUDIO_BYTES } from "./transport";
 
 export type PlaybackState =

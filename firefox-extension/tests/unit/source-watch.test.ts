@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { extractEditor, extractPage } from "../../src/extraction";
-import { segmentsFromRanges } from "../../src/mapping";
-import { sameRanges, watchSource } from "../../src/source-watch";
+import { extractEditor, extractPage } from "../../src/reading/extraction";
+import { segmentsFromRanges } from "../../src/reading/mapping";
+import { sameRanges, watchSource } from "../../src/reading/source-watch";
 beforeEach(() => {
   document.body.innerHTML =
     "<article><p>First sentence.</p><p>Second sentence.</p></article>";

@@ -1,21 +1,21 @@
-import { WebAudioPlayer } from "./audio";
+import { WebAudioPlayer } from "./speech/audio";
 import {
   editorRootFor,
   extractEditor,
   extractPage,
   type ReadingDocument,
-} from "./extraction";
-import { createControls, HOST_ID } from "./controls";
-import { SpeakingHighlight } from "./highlighting";
+} from "./reading/extraction";
+import { createControls, HOST_ID } from "./ui/controls";
+import { SpeakingHighlight } from "./reading/highlighting";
 import {
   captureSelection,
   segmentsFromRanges,
   type ReadingSegment,
-} from "./mapping";
-import { ReadingSession, createRequestId } from "./session";
-import { watchSource, sameRanges } from "./source-watch";
-import { watchSelection } from "./selection";
-import { ClickReader, type ClickScope } from "./mouse";
+} from "./reading/mapping";
+import { ReadingSession, createRequestId } from "./speech/session";
+import { watchSource, sameRanges } from "./reading/source-watch";
+import { watchSelection } from "./reading/selection";
+import { ClickReader, type ClickScope } from "./reading/mouse";
 
 if (!document.getElementById(HOST_ID)) mount();
 

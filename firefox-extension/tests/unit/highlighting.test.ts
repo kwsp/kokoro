@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SpeakingHighlight } from "../../src/highlighting";
+import { SpeakingHighlight } from "../../src/reading/highlighting";
 
 function fixture() {
   document.body.innerHTML =

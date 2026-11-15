@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createControls } from "../../src/controls";
-import { SpeakingHighlight } from "../../src/highlighting";
-import type { Snapshot } from "../../src/session";
+import { createControls } from "../../src/ui/controls";
+import { SpeakingHighlight } from "../../src/reading/highlighting";
+import type { Snapshot } from "../../src/speech/session";
 
 beforeEach(() => {
   vi.stubGlobal("browser", {

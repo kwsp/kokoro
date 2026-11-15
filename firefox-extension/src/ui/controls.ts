@@ -1,5 +1,5 @@
 import { ChevronUp, createElement, Settings, X } from "lucide";
-import type { Snapshot } from "./session";
+import type { Snapshot } from "../speech/session";
 
 export const HOST_ID = "kokoro-reader-controls";
 

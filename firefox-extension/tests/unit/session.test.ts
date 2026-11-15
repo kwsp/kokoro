@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { MAX_BUFFER_BYTES, type AudioAdapter } from "../../src/audio";
-import type { ReadingSegment } from "../../src/mapping";
+import { MAX_BUFFER_BYTES, type AudioAdapter } from "../../src/speech/audio";
+import type { ReadingSegment } from "../../src/reading/mapping";
 import {
   ReadingSession,
   createRequestId,
   type Snapshot,
   type SpeechTransport,
-} from "../../src/session";
+} from "../../src/speech/session";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

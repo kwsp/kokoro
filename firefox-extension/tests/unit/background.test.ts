@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadSettings } from "../../src/settings";
-import { fetchSpeech } from "../../src/transport";
+import { fetchSpeech } from "../../src/speech/transport";
 
 vi.mock("../../src/settings", () => ({ loadSettings: vi.fn() }));
-vi.mock("../../src/transport", () => ({
+vi.mock("../../src/speech/transport", () => ({
   fetchSpeech: vi.fn(),
   MAX_AUDIO_BYTES: 16 * 1024 * 1024,
 }));

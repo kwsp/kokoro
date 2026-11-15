@@ -1,4 +1,4 @@
-import { defaults, validateSettings } from "./settings";
+import { defaults, validateSettings } from "../settings";
 
 const input = (id: string) => document.getElementById(id) as HTMLInputElement;
 const status = document.getElementById("status")!;

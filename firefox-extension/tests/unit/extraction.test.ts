@@ -5,7 +5,7 @@ import {
   extractEditor,
   extractPage,
   uniqueOrderedMatches,
-} from "../../src/extraction";
+} from "../../src/reading/extraction";
 
 beforeEach(() => {
   document.body.replaceChildren();
