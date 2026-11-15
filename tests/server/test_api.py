@@ -18,6 +18,7 @@ PCM = b"\x01\x00\xff\x7f" * 4
 
 
 class Engine:
+    device = "cpu"
     voices: ClassVar = {"af_heart": "a", "bf_emma": "b"}
 
     def __init__(self, generate=None):
@@ -47,7 +48,7 @@ def client():
 
 def test_health_discovery_and_startup_reuse(client):
     client, engine = client
-    assert client.get("/health").json() == {"status": "ready"}
+    assert client.get("/health").json() == {"status": "ready", "device": "cpu"}
     assert client.get("/v1/models", headers=AUTH).json()["data"][0]["id"] == "kokoro"
     voices = client.get("/v1/voices", headers=AUTH).json()
     assert voices["voices"] == [

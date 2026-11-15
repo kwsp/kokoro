@@ -67,6 +67,7 @@ class SpeechService:
         self.max_audio_bytes = max_audio_bytes
         self.block_bytes = block_bytes
         self.voices = {}
+        self.device = "unknown"
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kokoro")
         self._engine = None
         self._active = None
@@ -85,11 +86,11 @@ class SpeechService:
         def initialize():
             self._engine = self._factory()
             self._engine.warmup()
-            return dict(self._engine.voices)
+            return dict(self._engine.voices), getattr(self._engine, "device", "unknown")
 
         future = asyncio.wrap_future(self._executor.submit(initialize))
         try:
-            self.voices = await asyncio.wait_for(
+            self.voices, self.device = await asyncio.wait_for(
                 asyncio.shield(future), self.startup_timeout
             )
         except BaseException:

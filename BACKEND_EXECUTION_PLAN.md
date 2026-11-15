@@ -128,3 +128,27 @@ Run `python -m kokoro_server --host 127.0.0.1 --port 8880 --device cpu` or the i
   Work continues on `feat/kokoro-speech-backend` with the configured global author; agents made no commits or external publications.
 - Remaining limits: one active job, CPU only at this step, no MP3/SSE, no forced interruption of native inference, and no separate slow-reader deadline.
   Apple Silicon support is assigned to the follow-up step requested by the user.
+
+### Step 5 report - Apple Silicon acceleration
+
+- Added `auto`, `cpu`, and `mps` device selection.
+  The default prefers MPS only on Apple Silicon when PyTorch reports GPU access; other environments use CPU.
+  Explicit unavailable MPS fails with an actionable CPU override message.
+- Set `PYTORCH_ENABLE_MPS_FALLBACK=1` before Torch or spaCy is imported for MPS setup.
+  Health responses and startup logging expose the selected device.
+  Embedding callers who import Torch first must configure fallback before that import.
+- Added unit tests for Apple/non-Apple selection, unavailable MPS, forced CPU, early fallback setup, and CLI argument forwarding.
+  Preserved the opt-in CPU regression and added repeated MPS HTTP synthesis plus a fresh CLI subprocess test without caller-provided fallback configuration.
+- Unit verification: **113 passed** for core, worker, API, CLI, and device tests.
+  Black and Ruff pass for the server and its tests.
+- The primary agent ran the hardware tests outside the sandbox to permit GPU access: **2 passed in 34.54 seconds**.
+  Actual model placement remained on MPS, WAV/PCM output was nonempty and valid, and the engine was reused.
+  The default CLI selected MPS without a preset fallback environment variable.
+- MPS startup including warm-up took 16.05 seconds.
+  Four requests each generated 2.48 seconds of audio, taking 2.07, 0.26, 0.26, and 0.25 seconds respectively.
+  PyTorch reported expected CPU fallback for `aten::angle`; MPS mode still uses CPU for unsupported operators.
+- No CUDA support or performance-specific pipeline changes were added.
+  CPU remains explicitly selectable with `--device cpu`.
+- Final complete suite: **134 passed, 3 skipped**.
+  All three opt-in hardware checks passed separately: two MPS tests and the explicit CPU HTTP test.
+  The final CPU check loaded in 3.08 seconds and generated 2.48 seconds of audio in 0.29 seconds for WAV and 0.28 seconds for PCM.

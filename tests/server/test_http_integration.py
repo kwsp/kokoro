@@ -4,6 +4,8 @@ import io
 import json
 import os
 import socket
+import subprocess
+import sys
 import threading
 import time
 import wave
@@ -197,11 +199,13 @@ def test_openai_sdk_reads_explicit_audio_formats(response_format):
 )
 def test_real_cached_model_over_http(tmp_path):
     start = time.perf_counter()
-    with running_server(engine_factory=KokoroEngine) as live:
+    with running_server(engine_factory=lambda: KokoroEngine(device="cpu")) as live:
         print(f"Model startup including warmup: {time.perf_counter() - start:.2f}s")
         voices = live.client.get("/v1/voices", headers=AUTH).json()["voices"]
         assert any(voice["id"] == "af_heart" for voice in voices)
         engine = live.app.state.speech._engine
+        assert engine.model.device.type == "cpu"
+        assert live.client.get("/health").json()["device"] == "cpu"
         for response_format in ("wav", "pcm"):
             start = time.perf_counter()
             result = live.client.post(
@@ -231,3 +235,97 @@ def test_real_cached_model_over_http(tmp_path):
             print(
                 f"{response_format}: {len(samples)/24000:.2f}s audio in {time.perf_counter()-start:.2f}s"
             )
+
+
+@pytest.mark.skipif(
+    os.environ.get("KOKORO_TEST_MPS") != "1",
+    reason="Set KOKORO_TEST_MPS=1 on an Apple Silicon host with GPU access",
+)
+def test_real_mps_model_over_http():
+    start = time.perf_counter()
+    with running_server(engine_factory=KokoroEngine) as live:
+        engine = live.app.state.speech._engine
+        assert engine.device == "mps"
+        assert engine.model.device.type == "mps"
+        assert live.client.get("/health").json()["device"] == "mps"
+        print(f"MPS startup including warmup: {time.perf_counter() - start:.2f}s")
+        for response_format in ("wav", "pcm", "wav", "pcm"):
+            start = time.perf_counter()
+            response = live.client.post(
+                "/v1/audio/speech",
+                headers=AUTH,
+                json={
+                    **INPUT,
+                    "input": "Hello from the local speech server.",
+                    "response_format": response_format,
+                },
+            )
+            response.raise_for_status()
+            data = response.content
+            if response_format == "wav":
+                with wave.open(io.BytesIO(data), "rb") as reader:
+                    assert (
+                        reader.getframerate(),
+                        reader.getnchannels(),
+                        reader.getsampwidth(),
+                    ) == (24000, 1, 2)
+                    data = reader.readframes(reader.getnframes())
+            samples = np.frombuffer(data, dtype="<i2")
+            assert np.isfinite(samples).all()
+            assert (
+                len(samples) > 24000 and np.max(np.abs(samples.astype(np.int32))) > 100
+            )
+            assert live.app.state.speech._engine is engine
+            assert engine.model.device.type == "mps"
+            print(
+                f"MPS {response_format}: {len(samples)/24000:.2f}s audio in {time.perf_counter()-start:.2f}s"
+            )
+
+
+@pytest.mark.skipif(
+    os.environ.get("KOKORO_TEST_MPS") != "1",
+    reason="Set KOKORO_TEST_MPS=1 on an Apple Silicon host with GPU access",
+)
+def test_cli_auto_enables_mps_without_fallback_environment(tmp_path):
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    environment = os.environ.copy()
+    environment["KOKORO_API_KEY"] = TOKEN
+    environment.pop("PYTORCH_ENABLE_MPS_FALLBACK", None)
+    with (tmp_path / "cli.log").open("w+") as log:
+        process = subprocess.Popen(
+            [sys.executable, "-m", "kokoro_server", "--port", str(port)],
+            env=environment,
+            stdout=log,
+            stderr=log,
+        )
+        try:
+            with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=5) as client:
+
+                def ready():
+                    if process.poll() is not None:
+                        log.seek(0)
+                        pytest.fail(f"CLI exited before readiness: {log.read()}")
+                    try:
+                        return client.get("/health").status_code == 200
+                    except httpx.ConnectError:
+                        return False
+
+                wait_for(ready, timeout=120)
+                assert client.get("/health").json()["device"] == "mps"
+                response = client.post(
+                    "/v1/audio/speech",
+                    headers=AUTH,
+                    json={**INPUT, "response_format": "pcm"},
+                )
+                response.raise_for_status()
+                samples = np.frombuffer(response.content, dtype="<i2")
+                assert len(samples) and np.max(np.abs(samples.astype(np.int32))) > 100
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)

@@ -1,5 +1,7 @@
 """Synchronous, reusable Kokoro adapter. Its caller owns thread serialization."""
 
+import os
+import platform
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -17,6 +19,29 @@ class EngineSetupError(RuntimeError):
 
 class UnknownVoiceError(ValueError):
     """The requested voice isn't in the engine's local voice registry."""
+
+
+def select_device(device: str) -> str:
+    """Prefer MPS on Apple Silicon; prepare fallback before Torch is imported."""
+    if device not in {"auto", "cpu", "mps"}:
+        raise ValueError("device must be auto, cpu, or mps")
+    apple_silicon = platform.system() == "Darwin" and platform.machine() == "arm64"
+    if device == "cpu" or (device == "auto" and not apple_silicon):
+        return "cpu"
+
+    # spaCy can import Torch too, so this must precede language-resource setup.
+    # Kokoro uses operators that currently need CPU fallback on MPS.
+    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+    import torch
+
+    if torch.backends.mps.is_available():
+        return "mps"
+    if device == "mps":
+        raise EngineSetupError(
+            "MPS is unavailable. Use --device cpu, or run an Apple Silicon Python "
+            "environment with an MPS-enabled PyTorch build and GPU access."
+        )
+    return "cpu"
 
 
 def cached_snapshot() -> Path:
@@ -49,9 +74,8 @@ class KokoroEngine:
     All assets are local; no downloads are attempted by the engine.
     """
 
-    def __init__(self, device: str = "cpu"):
-        if device != "cpu":
-            raise ValueError("Only the tested CPU device is supported")
+    def __init__(self, device: str = "auto"):
+        self.device = select_device(device)
         snapshot = cached_snapshot()
         config = snapshot / "config.json"
         weights = snapshot / "kokoro-v1_0.pth"
@@ -76,7 +100,7 @@ class KokoroEngine:
         self.voices = {name: name[0] for name in self._voice_paths}
         self.model = (
             KModel(repo_id=REPO_ID, config=str(config), model=str(weights))
-            .to(device)
+            .to(self.device)
             .eval()
         )
         self._pipelines = {

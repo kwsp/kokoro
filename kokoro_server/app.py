@@ -113,7 +113,9 @@ def create_app(
         logger.info("Loading cached Kokoro model and warming up")
         try:
             await service.start()
-            logger.info("Kokoro ready with %d voices", len(service.voices))
+            logger.info(
+                "Kokoro ready on %s with %d voices", service.device, len(service.voices)
+            )
             yield
         finally:
             await service.close()
@@ -157,7 +159,7 @@ def create_app(
 
     @app.get("/health")
     async def health():
-        return {"status": "ready"}
+        return {"status": "ready", "device": app.state.speech.device}
 
     @app.get("/v1/models", dependencies=[Depends(authenticate)])
     async def models():

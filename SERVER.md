@@ -1,7 +1,8 @@
 # Local Kokoro speech server
 
 This server wraps the repository's Kokoro model with an OpenAI-style `POST /v1/audio/speech` endpoint.
-It runs locally on CPU, keeps one model loaded, and supports English voices with PCM and WAV output.
+It runs locally, keeps one model loaded, and supports English voices with PCM and WAV output.
+On Apple Silicon it automatically uses the MPS GPU when PyTorch reports it available; otherwise it uses CPU.
 No OpenAI account or API request is involved.
 
 ## Setup and startup
@@ -29,7 +30,12 @@ python -m kokoro_server
 
 The installed `kokoro-server` command is equivalent.
 The default address is `http://127.0.0.1:8880`; use `--port` to change it.
-Only loopback binding and CPU are supported in this first version.
+Only loopback binding is supported.
+The default `--device auto` selects MPS on an Apple Silicon Mac with GPU access, and CPU elsewhere.
+Use `--device cpu` to force CPU or `--device mps` to require MPS; explicitly requesting unavailable MPS fails with an actionable startup error.
+`GET /health` reports the selected device.
+MPS startup enables `PYTORCH_ENABLE_MPS_FALLBACK=1` before importing Torch so unsupported GPU operations can run on CPU.
+When embedding the server in a Python process that imports Torch first, set that environment variable before importing Torch yourself.
 The server loads cached model files and warms up before accepting requests.
 Missing model or English resources cause a startup error with setup instructions; requests never trigger downloads.
 Use Ctrl+C to stop it.
@@ -77,7 +83,7 @@ There is no `stream: true` request field.
 
 | Endpoint | Behavior |
 | --- | --- |
-| `GET /health` | Unauthenticated readiness response, available after startup completes. |
+| `GET /health` | Unauthenticated readiness and selected-device response, available after startup completes. |
 | `GET /v1/models` | Authenticated OpenAI-shaped model list containing `kokoro`. |
 | `GET /v1/voices` | Authenticated local extension listing cached English voices and formats. |
 | `POST /v1/audio/speech` | Authenticated speech generation. |
@@ -135,8 +141,25 @@ The real-model smoke test is opt-in and requires the model/language resources pr
 KOKORO_TEST_REAL_MODEL=1 python -m pytest tests/server/test_http_integration.py::test_real_cached_model_over_http -q -s
 ```
 
+The test above explicitly uses CPU even on Apple Silicon.
+Run the MPS tests in a fresh Python process with GPU and loopback socket access:
+
+```bash
+KOKORO_TEST_MPS=1 python -m pytest \
+  tests/server/test_http_integration.py::test_real_mps_model_over_http \
+  tests/server/test_http_integration.py::test_cli_auto_enables_mps_without_fallback_environment -q -s
+```
+
+These check actual model placement on MPS, repeated WAV/PCM synthesis, and the default CLI in a subprocess without a caller-provided fallback variable.
+
 During verification on this machine, startup including warm-up took 4.21 seconds.
 The warm WAV request generated 2.48 seconds of audio in 0.33 seconds; the PCM request generated 2.48 seconds in 0.30 seconds.
 These measurements are examples, not performance guarantees.
+
+On this Apple Silicon Mac, MPS startup including warm-up took 16.05 seconds.
+The first WAV request generated 2.48 seconds of audio in 2.07 seconds; the following PCM, WAV, and PCM requests each generated 2.48 seconds in 0.26, 0.26, and 0.25 seconds respectively.
+The model remained on MPS across requests, and a fresh CLI subprocess selected MPS without requiring the caller to set a fallback environment variable.
+PyTorch reported CPU fallback for `aten::angle`, so MPS mode does not mean every operation runs on the GPU.
+Use `--device cpu` if you prefer the lower startup cost or need to diagnose a device-specific problem.
 
 The implementation steps and validation reports are in [BACKEND_EXECUTION_PLAN.md](BACKEND_EXECUTION_PLAN.md).

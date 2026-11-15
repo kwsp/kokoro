@@ -13,7 +13,9 @@ def test_cli_uses_token_and_single_loopback_worker(monkeypatch):
     monkeypatch.setattr("kokoro_server.app.create_app", factory)
     monkeypatch.setattr("uvicorn.run", run)
     main([])
-    factory.assert_called_once_with("test-key")
+    factory.assert_called_once()
+    assert factory.call_args.args == ("test-key",)
+    assert factory.call_args.kwargs["engine_factory"].keywords == {"device": "auto"}
     run.assert_called_once_with(
         app, host="127.0.0.1", port=8880, workers=1, reload=False
     )
@@ -27,9 +29,22 @@ def test_cli_requires_token(monkeypatch, capsys):
     assert "KOKORO_API_KEY" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize("device", ["cpu", "mps", "auto"])
+def test_cli_passes_device_to_engine(monkeypatch, device):
+    monkeypatch.setenv("KOKORO_API_KEY", "test-key")
+    factory = Mock()
+    model = Mock()
+    monkeypatch.setattr("kokoro_server.app.create_app", factory)
+    monkeypatch.setattr("kokoro_server.engine.KokoroEngine", model)
+    monkeypatch.setattr("uvicorn.run", Mock())
+    main(["--device", device])
+    factory.call_args.kwargs["engine_factory"]()
+    model.assert_called_once_with(device=device)
+
+
 @pytest.mark.parametrize(
     "args",
-    [["--port", "0"], ["--port", "65536"], ["--host", "0.0.0.0"], ["--device", "mps"]],
+    [["--port", "0"], ["--port", "65536"], ["--host", "0.0.0.0"], ["--device", "cuda"]],
 )
 def test_invalid_cli_options(args, monkeypatch):
     monkeypatch.setenv("KOKORO_API_KEY", "key")

@@ -148,7 +148,14 @@ def fake_assets(tmp_path, monkeypatch):
     )
     tensor = object()
     load = Mock(return_value=tensor)
-    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(load=load))
+    monkeypatch.setitem(
+        sys.modules,
+        "torch",
+        SimpleNamespace(
+            load=load,
+            backends=SimpleNamespace(mps=SimpleNamespace(is_available=lambda: False)),
+        ),
+    )
     return SimpleNamespace(
         path=tmp_path,
         model=model,
@@ -208,7 +215,7 @@ def test_no_english_voices(fake_assets):
 
 
 def test_unsupported_device():
-    with pytest.raises(ValueError, match="CPU"):
+    with pytest.raises(ValueError, match="auto, cpu, or mps"):
         engine.KokoroEngine(device="cuda")
 
 
