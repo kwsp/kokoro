@@ -2,7 +2,7 @@
 
 Read articles or selected text aloud with the local Kokoro server, with sentence highlighting and a compact page control bar.
 This personal-use extension sends text only to the loopback server you configure and does not require an OpenAI account.
-The implementation plan and per-step validation reports are in [IMPLEMENTATION.md](IMPLEMENTATION.md).
+See [IMPLEMENTATION.md](IMPLEMENTATION.md) for implementation and verification reports and [REFACTOR_PLAN.md](REFACTOR_PLAN.md) for the refactor sequence.
 
 ## Start the local server
 
@@ -57,6 +57,12 @@ npm test
 npm run build
 npm run lint:extension
 ```
+
+The extension entry points are `src/background.ts`, `src/content.ts`, and `src/ui/options.ts`. The `src/ui/` directory holds the toolbar and options page. Page text, selection, and highlighting are in `src/reading/`. Playback, transport, and ownership coordination are in `src/speech/`.
+
+The build bundles toolbar CSS into the shadow root and highlight CSS into the content script. The options page links to its packaged CSS file.
+
+Esbuild compiles the Svelte UI with the compiler's DOM-tree fragment mode. Vitest compiles toolbar components with the same fragment mode and uses the Svelte browser runtime. Run `npm run typecheck` to check both TypeScript and Svelte components.
 
 ## Read and interact
 

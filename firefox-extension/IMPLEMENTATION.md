@@ -260,3 +260,25 @@ The panel updates elapsed time only while open, and its expansion preference is 
 
 Validation: 202 unit tests passed, and both advanced-panel tests passed in headed Firefox.
 The full Firefox suite passed all 49 cases, including real CPU and MPS coverage.
+
+## Source and UI refactor
+
+The [execution plan](REFACTOR_PLAN.md) splits layout, styles, renderer evaluation, and browser wiring into reviewable changes.
+The source tree separates UI, reading, speech, and icon assets while keeping the same manifest and installed script paths.
+The build packages the options stylesheet and bundles toolbar and highlight CSS as text for their existing style elements.
+Toolbar placement and the page-owned outline fallback retain their inline styles.
+The runtime speech adapter owns content-to-background request, ownership, and cancellation messages.
+Click targeting takes the actual toolbar host, which removes its dependency on the UI module.
+Page, selection, and editor-preview lifecycle stay coordinated in the content entry point.
+
+This candidate renders the settings form and the shadow-root controls with Svelte.
+The controls adapter preserves synchronous updates and focus for the existing content entry point.
+The build compiles DOM-tree fragments to keep extension lint clean and packages licenses for the bundled runtime.
+The installed settings test verifies the voice list and token error through the real extension page.
+
+Firefox 157.0.1 passed all 50 installed-extension cases before the final diagnostics update, including four real Kokoro CPU and automatic MPS cases.
+All four headless toolbar layout screenshots matched baseline byte-for-byte.
+Seven focused headed Firefox presentation, keyboard, and diagnostics cases passed after the update. The final candidate passed 203 unit tests, TypeScript and Svelte checking, ESLint, Prettier, Black, Ruff, build, extension lint, and packaging.
+
+With `gzip -cn`, the renderer-preserving build's content and options scripts measured 15,483 and 1,328 bytes. The final Svelte build measured 54,927 and 40,408 bytes, respectively. The unsigned ZIP grew from 53,442 to 133,196 bytes.
+The candidate is available on `codex/firefox-refactor-svelte` for the renderer decision. The source, CSS, and browser integration refactor is on `codex/firefox-refactor`.
