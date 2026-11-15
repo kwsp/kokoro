@@ -49,4 +49,21 @@ GitHub issues are disabled for this repository, so no issue can be attached and 
 
 ## Reports and review log
 
-Implementation has not started yet.
+### Step 1 report
+
+Implemented the locked TypeScript/esbuild project, production MV2 manifest, validated loopback settings, authenticated bounded WAV transport, persistent background routing, and user-triggered reader controls.
+The content script starts an AudioContext from the Play gesture, receives an ArrayBuffer through extension messaging, plays decoded WAV, and marks the speaking range with the CSS Highlight API.
+The token stays in extension storage and background/options code.
+The page receives no token or settings message.
+
+Validation passed: TypeScript, ESLint, Prettier, 23 Vitest unit tests, esbuild, web-ext with zero errors and warnings, Python Black/Ruff, and one installed-extension E2E test in Firefox 157.0.1 with geckodriver 0.37.1.
+The E2E test uses a fresh profile and a deterministic WAV server, saves and checks authenticated settings, clicks the actual browser action through Firefox's Extensions menu, and reads a page outside the backend host permissions.
+It proves authenticated WAV fetch, ArrayBuffer messaging, a real audio completion event, the exact speaking highlight, and highlight cleanup.
+The primary agent reviewed the playing screenshot and confirmed a visible highlight and legible compact controls.
+Failure artifacts include screenshots, sanitized browser control metadata, fixture request history without authorization headers, and the driver log.
+
+The next steps replace the foundation's first-paragraph/selection playback with the planned session controller, extraction, and interactions.
+The Alt+Shift+K shortcut and selection context menu remain manual browser checks; headless WebDriver key routing did not reliably activate the shortcut.
+Audible speaker output also requires a listening check.
+The test-only geckodriver system-access flag permits automation of browser chrome and the extension options page without adding extension permissions.
+On macOS the harness isolates application data with `CFFIXED_USER_HOME`, avoiding personal Firefox profiles and Full Disk Access.

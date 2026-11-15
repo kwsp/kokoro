@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "name": "Kokoro Page Reader",
+  "version": "0.1.0",
+  "description": "Read webpage text with a local Kokoro speech server.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "kokoro-reader@local.invalid",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "menus",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": { "scripts": ["background.js"], "persistent": true },
+  "browser_action": { "default_title": "Read with Kokoro" },
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": { "default": "Alt+Shift+K" },
+      "description": "Show the Kokoro reader"
+    }
+  },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "content_security_policy": "script-src 'self'; object-src 'self'"
+}
