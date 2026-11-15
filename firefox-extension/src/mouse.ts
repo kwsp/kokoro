@@ -38,7 +38,7 @@ export function segmentAtPoint(
     !caret ||
     caret.offsetNode.nodeType !== Node.TEXT_NODE ||
     !caret.offsetNode.isConnected ||
-    !readableText(caret.offsetNode as Text)
+    !readableText(caret.offsetNode as Text, true)
   )
     return;
   const index = segments.findIndex((segment) =>

@@ -9,6 +9,7 @@ import {
 } from "./mapping";
 import { ReadingSession, createRequestId } from "./session";
 import { watchSource, sameRanges } from "./source-watch";
+import { watchSelection } from "./selection";
 import { ClickReader } from "./mouse";
 
 if (!document.getElementById(HOST_ID)) mount();
@@ -18,6 +19,7 @@ function mount() {
   let extractionError: string | undefined;
   const sessionId = createRequestId();
   let scopeRanges: Range[] = [];
+  let pendingRanges: Range[] = [];
   let selectionScope = false;
   let invalidated = false;
   let unwatch: (() => void) | undefined;
@@ -79,7 +81,14 @@ function mount() {
   );
   const controls = createControls({
     play: () => {
-      if (invalidated) refresh();
+      const ranges = pendingRanges.length
+        ? pendingRanges
+        : captureSelection(window.getSelection());
+      if (isNewSelection(ranges)) {
+        selectionScope = true;
+        scopeRanges = ranges;
+        refresh();
+      } else if (invalidated) refresh();
       else if (!segments.length) activate();
       if (segments.length) session.play();
     },
@@ -100,11 +109,30 @@ function mount() {
     (index) => session.seek(index),
     (enabled) => controls.setClickMode(enabled),
   );
+  const stopWatchingSelection = watchSelection(
+    document,
+    controls.host,
+    (ranges) => {
+      pendingRanges =
+        isNewSelection(ranges) && segmentsFromRanges(ranges).length
+          ? ranges
+          : [];
+      controls.setSelectionAvailable(pendingRanges.length > 0);
+    },
+  );
+
+  function isNewSelection(ranges: readonly Range[]) {
+    return (
+      ranges.length > 0 && (!selectionScope || !sameRanges(ranges, scopeRanges))
+    );
+  }
 
   function refresh() {
     unwatch?.();
     clickReader.reset();
     invalidated = false;
+    pendingRanges = [];
+    controls.setSelectionAvailable(false);
     extractionError = undefined;
     try {
       let root: Element;
@@ -118,7 +146,7 @@ function mount() {
       }
       if (!segments.length)
         extractionError =
-          "No readable text selected. Select a passage, then activate Kokoro again.";
+          "No readable text selected. Select a passage, then press Read selection.";
       else
         unwatch = watchSource(root, segments, selectionScope, () => {
           invalidated = true;
@@ -132,16 +160,15 @@ function mount() {
       extractionError =
         error instanceof Error
           ? error.message
-          : "Could not read this page. Select a passage, then activate Kokoro again.";
+          : "Could not read this page. Select a passage, then press Read selection.";
     }
     session.replaceSegments(segments);
   }
 
   function activate(selectionOnly = false) {
-    const ranges = captureSelection(window.getSelection());
-    const newSelection =
-      ranges.length > 0 &&
-      (!selectionScope || !sameRanges(ranges, scopeRanges));
+    const current = captureSelection(window.getSelection());
+    const ranges = current.length ? current : pendingRanges;
+    const newSelection = isNewSelection(ranges);
     if (newSelection || selectionOnly || !segments.length) {
       selectionScope = ranges.length > 0 || selectionOnly;
       scopeRanges = ranges;
@@ -179,6 +206,7 @@ function mount() {
   function close() {
     if (closed) return;
     closed = true;
+    stopWatchingSelection();
     unwatch?.();
     clickReader.close();
     session.close();

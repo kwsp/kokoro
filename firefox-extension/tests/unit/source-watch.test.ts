@@ -61,4 +61,30 @@ describe("source lifecycle", () => {
     copy.setStart(copy.startContainer.firstChild!, 2);
     expect(sameRanges([range], [copy])).toBe(false);
   });
+  it("invalidates selected editor text when it is edited or hidden", async () => {
+    document.body.innerHTML =
+      '<div contenteditable="true"><p>Editable note.</p></div>';
+    const paragraph = document.querySelector("p")!;
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    const changed = vi.fn();
+    const unwatch = watchSource(
+      document.body,
+      segmentsFromRanges([range]),
+      true,
+      changed,
+    );
+    paragraph.style.outline = "2px solid brown";
+    await settle();
+    expect(changed).not.toHaveBeenCalled();
+    paragraph.firstChild!.textContent = "Revised note.";
+    await settle();
+    expect(changed).toHaveBeenCalledOnce();
+    unwatch();
+    const hidden = vi.fn();
+    watchSource(document.body, segmentsFromRanges([range]), true, hidden);
+    paragraph.hidden = true;
+    await settle();
+    expect(hidden).toHaveBeenCalledOnce();
+  });
 });

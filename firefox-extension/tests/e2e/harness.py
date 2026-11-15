@@ -87,6 +87,7 @@ class FixtureServer:
                     "/ambiguous",
                     "/empty",
                     "/mouse",
+                    "/web-app",
                 }:
                     fixture = EXTENSION / "tests" / "fixtures" / f"{self.path[1:]}.html"
                     self.send(200, fixture.read_bytes(), "text/html")

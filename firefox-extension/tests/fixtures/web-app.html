@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Document and conversation selection</title>
+    <style>
+      body { font: 18px/1.6 system-ui; margin: 32px; }
+      #editor { border: 1px solid #aaa; padding: 16px; }
+      .passage { white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <nav>Workspace navigation should not be read.</nav>
+    <div role="main">
+      <article><p><span class="passage" id="response">Read this conversation response.</span></p><button>Copy response</button></article>
+      <article><p><span class="passage" id="followup">Read the next conversation reply.</span></p><button>Rate reply</button></article>
+      <div role="textbox" contenteditable="true" aria-label="Message composer">Unsent composer draft.</div>
+    </div>
+    <div id="editor" role="textbox" contenteditable="true" aria-label="Editable document">
+      <p><span class="passage" id="document-text">Read this editable document passage.</span></p>
+    </div>
+    <aside><p><span class="passage" id="sidebar-note">Chosen sidebar note.</span></p></aside>
+  </body>
+</html>

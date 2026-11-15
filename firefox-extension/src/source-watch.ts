@@ -18,7 +18,7 @@ export function watchSource(
     if (!root.isConnected) return [];
     if (selectionOnly)
       return selectedNodes
-        .filter((node) => node.isConnected && readableText(node))
+        .filter((node) => node.isConnected && readableText(node, true))
         .map((node) => ({ node, text: node.data }));
     const walker = root.ownerDocument.createTreeWalker(
       root,

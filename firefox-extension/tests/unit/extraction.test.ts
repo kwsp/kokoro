@@ -42,6 +42,52 @@ describe("page extraction", () => {
     expect(extractPage(document).source).toBe("main");
     expect(texts()).toEqual(["Main heading", "Main prose."]);
   });
+  it("reads an ARIA main landmark without HTML article or main tags", () => {
+    document.body.innerHTML =
+      '<nav>Workspace navigation.</nav><div role="main"><p>Main application text.</p></div>';
+    const reading = extractPage(document);
+    expect(reading.source).toBe("main");
+    expect(reading.root).toBe(document.querySelector('[role="main"]'));
+    expect(texts()).toEqual(["Main application text."]);
+  });
+  it.each(["<main>", '<div role="main">'])(
+    "reads all article turns in one %s landmark while excluding the composer",
+    (opening) => {
+      const closing = opening === "<main>" ? "</main>" : "</div>";
+      document.body.innerHTML = `<nav>Workspace navigation.</nav>${opening}<article><p>Short question.</p><button>Copy question</button></article><article><p>${paragraph}</p><button>Copy response</button></article><div role="textbox" contenteditable="true">Unsent composer draft.</div>${closing}`;
+      const before = document.body.innerHTML;
+      const reading = extractPage(document);
+      expect(reading.source).toBe("main");
+      expect(reading.segments.map((segment) => segment.text)).toEqual([
+        "Short question.",
+        paragraph,
+      ]);
+      expect(reading.segments[0]!.ranges[0]!.startContainer).toBe(
+        document.querySelector("article p")!.firstChild,
+      );
+      expect(document.body.innerHTML).toBe(before);
+    },
+  );
+  it("uses the outermost main landmark without duplicating nested turns", () => {
+    document.body.innerHTML =
+      '<main><div role="main"><article><p>First reply.</p></article><article><p>Other reply.</p></article></div></main>';
+    expect(extractPage(document).root).toBe(document.querySelector("main"));
+    expect(texts()).toEqual(["First reply.", "Other reply."]);
+  });
+  it("still prefers a single article within an ARIA main landmark", () => {
+    document.body.innerHTML =
+      '<div role="main"><p>Other application text.</p><article><p>Chosen article.</p></article></div>';
+    expect(extractPage(document).source).toBe("article");
+    expect(texts()).toEqual(["Chosen article."]);
+  });
+  it("ignores hidden main landmarks and does not combine unrelated article roots", () => {
+    document.body.innerHTML =
+      '<div role="main" hidden><p>Hidden application text.</p></div><main><p>Visible prose.</p></main>';
+    expect(texts()).toEqual(["Visible prose."]);
+    document.body.innerHTML =
+      '<main><article><p>First story.</p></article></main><div role="main"><article><p>Other story.</p></article></div>';
+    expect(() => extractPage(document)).toThrow("Select a passage");
+  });
   it("excludes hidden prose, controls, editable areas, navigation, and aside content", () => {
     document.head.innerHTML = "<style>.concealed{display:none}</style>";
     document.body.innerHTML =

@@ -54,11 +54,25 @@ describe("selection source mapping", () => {
   });
   it("omits controls and hidden content without highlighting them", () => {
     const segments = read(
-      '<p>Read <span hidden>hidden</span><button>button</button><span style="display:none">secret</span><span contenteditable="true">editor</span>this.</p><nav>Navigation.</nav><script>bad()</script>',
+      '<p>Read <span hidden>hidden</span><button>button</button><span style="display:none">secret</span>this.</p><script>bad()</script>',
     );
     expect(segments.map((s) => s.text)).toEqual(["Read this."]);
     expect(sourceText(segments[0]!)).toBe("Read this.");
     expect(segments[0]!.ranges).toHaveLength(2);
+  });
+  it("allows explicitly selected editor text while preserving hidden exclusions", () => {
+    const segments = read(
+      '<div contenteditable="true" role="textbox"><p>Editable <em>document</em> text.<span hidden>Hidden draft.</span><button>Editor action</button></p></div>',
+    );
+    expect(segments.map((s) => s.text)).toEqual(["Editable document text."]);
+    expect(sourceText(segments[0]!)).toBe("Editable document text.");
+  });
+  it("honors explicit selections in app sidebars and semantic wrappers", () => {
+    expect(
+      read(
+        '<aside><div role="button"><header>Chosen note.</header></div></aside>',
+      ).map((s) => s.text),
+    ).toEqual(["Chosen note."]);
   });
   it("maps repeated phrases to their own occurrence", () => {
     const segments = read("<p>Repeat. Repeat.</p>");

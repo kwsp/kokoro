@@ -67,12 +67,17 @@ The selected text is split into sentences, and only the current sentence is high
 Pause keeps the current sentence and exact audio offset; Resume continues from there without another request.
 Stop cancels pending work and resets to the beginning of the selected passage.
 Retry repeats the current sentence after an error.
-A fresh selection followed by activation replaces the reading scope without creating another control bar.
+A fresh selection while the bar is open changes its primary button to **Read selection**; press it to replace the reading scope without reactivating the extension.
+Selecting text alone does not start or interrupt speech.
+Selections are retained before the controls receive focus, including editors that clear their native selection on blur.
+Explicit selection reading supports visible `contenteditable` document text, such as notes in a document editor, while hidden content and native form controls remain excluded.
+A fresh selection followed by toolbar, shortcut, or context-menu activation also replaces the reading scope without creating another control bar.
 Activating again with the same retained selection focuses the existing bar and preserves playback.
-Activation without a selection reads visible prose from a suitable article or main element, including headings, lists, and quotations.
+Activation without a selection reads visible prose from a suitable article, main element, or ARIA main landmark, including headings, lists, and quotations.
+Multiple article turns within one main landmark are read in document order, which supports conversation layouts without choosing only the longest turn.
 Pages without those semantic roots use Mozilla Readability on a detached clone.
 The retained text must map uniquely to ordered visible source blocks; ambiguous articles or mappings offer selection reading instead.
-Navigation, controls, hidden content, editable regions, and unrelated sidebars are excluded.
+Automatic page extraction excludes navigation, controls, hidden content, editable regions, and unrelated sidebars, including unsent message composers.
 Only a closed details element's summary is read until that element is opened.
 Selections inside shadow roots are outside this version's top-level-document scope.
 
@@ -83,6 +88,7 @@ No audio starts merely because the extension is activated.
 
 Enable **Click to read** to preview a sentence under the pointer and click it to start reading there.
 The mode uses the current reading scope, so selection reading stays within the selected passage.
+In editable documents, use explicit selection and the reader buttons; click-to-read continues to preserve ordinary editing clicks.
 Seeking works while preparing, playing, or paused and discards obsolete audio.
 The green hover preview has lower priority than the speaking highlight.
 Press Escape to leave click mode without stopping playback.

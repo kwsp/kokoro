@@ -22,9 +22,9 @@ interface MappedBlock {
 }
 
 const EMPTY_MESSAGE =
-  "No readable article found. Select a passage, then activate Kokoro again.";
+  "No readable article found. Select a passage, then press Read selection.";
 const AMBIGUOUS_MESSAGE =
-  "Could not confidently identify the article. Select a passage, then activate Kokoro again.";
+  "Could not confidently identify the article. Select a passage, then press Read selection.";
 
 /** Consecutive groups preserve DOM order even when prose blocks are nested. */
 export function collectBlocks(root: Element): MappedBlock[] {
@@ -59,11 +59,11 @@ function toSegments(blocks: readonly MappedBlock[]): ReadingSegment[] {
   );
 }
 
-function semanticRoot(document: Document, tag: "article" | "main") {
-  const candidates = [...document.querySelectorAll(tag)]
+function semanticRoots(document: Document, selector: string) {
+  return [...document.querySelectorAll(selector)]
     .filter(
       (element) =>
-        readableElement(element) && !element.parentElement?.closest(tag),
+        readableElement(element) && !element.parentElement?.closest(selector),
     )
     .map((element) => ({ element, blocks: collectBlocks(element) }))
     .filter(({ blocks }) =>
@@ -77,6 +77,9 @@ function semanticRoot(document: Document, tag: "article" | "main") {
       ),
     }))
     .sort((left, right) => right.size - left.size);
+}
+
+function dominantRoot(candidates: ReturnType<typeof semanticRoots>) {
   const first = candidates[0];
   if (!first) return;
   // Similar article cards are not a single reading scope.
@@ -133,15 +136,24 @@ function readableClone(document: Document): Document {
 }
 
 export function extractPage(document: Document): ReadingDocument {
-  for (const source of ["article", "main"] as const) {
-    const candidate = semanticRoot(document, source);
-    if (candidate)
-      return {
-        root: candidate.element,
-        source,
-        segments: toSegments(candidate.blocks),
-      };
-  }
+  const articles = semanticRoots(document, "article");
+  const mains = semanticRoots(document, 'main,[role="main"]');
+  // Conversation turns can each be articles within one explicit main landmark.
+  // Keep their DOM order rather than rejecting them or choosing the longest turn.
+  const collection =
+    articles.length > 1
+      ? mains.find((main) =>
+          articles.every((article) => main.element.contains(article.element)),
+        )
+      : undefined;
+  const article = collection ? undefined : dominantRoot(articles);
+  const candidate = collection ?? article ?? dominantRoot(mains);
+  if (candidate)
+    return {
+      root: candidate.element,
+      source: article ? "article" : "main",
+      segments: toSegments(candidate.blocks),
+    };
   if (!document.body) throw new Error(EMPTY_MESSAGE);
   const original = collectBlocks(document.body);
   if (!original.length) throw new Error(EMPTY_MESSAGE);

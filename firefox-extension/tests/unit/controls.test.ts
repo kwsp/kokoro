@@ -10,6 +10,42 @@ afterEach(() => {
 });
 
 describe("reader controls", () => {
+  it("offers an explicit selection action without interrupting playback automatically", () => {
+    const actions = {
+      play: vi.fn(),
+      pause: vi.fn(),
+      stop: vi.fn(),
+      clickMode: vi.fn(),
+      settings: vi.fn(),
+      close: vi.fn(),
+    };
+    const controls = createControls(actions);
+    controls.update({
+      state: "playing",
+      index: 0,
+      total: 3,
+      offset: 0,
+      highlightedIndex: 0,
+    });
+    controls.setSelectionAvailable(true);
+    const button = controls.host.shadowRoot!.getElementById(
+      "play",
+    ) as HTMLButtonElement;
+    expect(button.textContent).toBe("Read selection");
+    expect(
+      controls.host.shadowRoot!.querySelector('[role="status"]')!.textContent,
+    ).toBe("Selected text is ready to read.");
+    expect(actions.play).not.toHaveBeenCalled();
+    expect(actions.pause).not.toHaveBeenCalled();
+    button.click();
+    expect(actions.play).toHaveBeenCalledOnce();
+    expect(actions.pause).not.toHaveBeenCalled();
+    controls.setSelectionAvailable(false);
+    expect(button.textContent).toBe("Pause");
+    button.click();
+    expect(actions.pause).toHaveBeenCalledOnce();
+    controls.close();
+  });
   it("shows progress and dispatches Play, Pause, Resume, and Retry correctly", () => {
     const actions = {
       play: vi.fn(),

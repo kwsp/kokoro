@@ -26,7 +26,9 @@ export const MAX_SEGMENT_CODEPOINTS = 1000;
 const BLOCKS =
   "p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,dd,dt,figcaption,details,summary,div,section,article,main";
 const EXCLUDED =
-  'script,style,noscript,template,nav,footer,aside,button,input,textarea,select,[role="navigation"],[role="button"],[role="menu"],[role="toolbar"],[hidden],[aria-hidden="true"],[contenteditable]:not([contenteditable="false"]),#kokoro-reader-controls';
+  'script,style,noscript,template,button,input,textarea,select,[hidden],[aria-hidden="true"],#kokoro-reader-controls';
+const PAGE_EXCLUDED =
+  'nav,footer,aside,[role="navigation"],[role="button"],[role="menu"],[role="toolbar"],[contenteditable]:not([contenteditable="false"])';
 
 function hiddenByDetails(node: Node): boolean {
   for (
@@ -43,11 +45,13 @@ function hiddenByDetails(node: Node): boolean {
   return false;
 }
 
-export function readableElement(parent: Element): boolean {
+export function readableElement(parent: Element, selected = false): boolean {
   if (parent.closest(EXCLUDED)) return false;
+  if (!selected && parent.closest(PAGE_EXCLUDED)) return false;
   if (hiddenByDetails(parent)) return false;
   const header = parent.closest("header");
-  if (header && !header.closest("article,main")) return false;
+  if (!selected && header && !header.closest('article,main,[role="main"]'))
+    return false;
   for (
     let element: Element | null = parent;
     element;
@@ -66,9 +70,11 @@ export function readableElement(parent: Element): boolean {
   return true;
 }
 
-export function readableText(node: Text): boolean {
+export function readableText(node: Text, selected = false): boolean {
   if (hiddenByDetails(node)) return false;
-  return Boolean(node.parentElement && readableElement(node.parentElement));
+  return Boolean(
+    node.parentElement && readableElement(node.parentElement, selected),
+  );
 }
 
 export function blockFor(node: Text): Element {
@@ -205,7 +211,9 @@ export function segmentsFromRanges(ranges: readonly Range[]): ReadingSegment[] {
       root.nodeType === Node.TEXT_NODE ? root : walker.nextNode();
     while (node) {
       const text = node as Text;
-      if (readableText(text) && range.intersectsNode(text)) {
+      // Explicit selection can include an editor or application sidebar that
+      // automatic article extraction intentionally leaves out.
+      if (readableText(text, true) && range.intersectsNode(text)) {
         const start = range.startContainer === text ? range.startOffset : 0;
         const end = range.endContainer === text ? range.endOffset : text.length;
         if (start < end) {

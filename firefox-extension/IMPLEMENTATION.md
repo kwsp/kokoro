@@ -176,3 +176,25 @@ Packaging produced `firefox-extension/artifacts/kokoro_page_reader-0.1.0.zip`, c
 The artifact is unsigned and intended for Firefox's temporary add-on loader.
 The backend implementation is unchanged; its regression suite separately passed 134 tests with three opt-in tests skipped.
 Audible speaker output and the user's preferred voice still need the README's manual listening check in a normal Firefox session.
+
+### Follow-up: selection in document editors and conversation pages
+
+The user confirmed article reading works, but reported that selecting text after opening the bar on Notion or ChatGPT still showed “No readable text selected”.
+Real mouse-selection tests in Firefox reproduced rejected editable selections, an existing reading scope taking precedence over a newly selected passage, and ambiguous conversation articles preventing main-landmark extraction.
+The bar now watches page selections, offers an explicit Read selection action, and retains source ranges when focusing controls causes an editor to clear its native selection.
+Selecting text alone does not start or interrupt audio, and the action replaces the scope only when pressed.
+Explicit selections permit visible editor and application-sidebar text while automatic extraction still excludes editors, composers, navigation, and controls.
+Source watching applies the same selection policy, so editing or hiding selected document text invalidates playback.
+
+A delegated extraction change recognizes ARIA main landmarks and reads multiple article turns inside a single containing main in document order.
+Single articles retain preference, and unrelated ambiguous article roots still require a selection.
+Review identified a mismatch between selected-sidebar mapping and pointer hit testing; a failing real Firefox hover case reproduced it before the hit test was corrected.
+Click mode still leaves editor interaction and ordinary controls alone.
+
+Validation passed: 162 unit tests, TypeScript, ESLint, Prettier, Black, Ruff, build, and scoped web-ext with zero errors or warnings.
+The complete deterministic Firefox run passed 34 cases in 162.70 seconds, with the two opt-in real-backend tests skipped because the audio transport and backend were unchanged.
+After the pointer-policy correction, all thirteen headed web-app and mouse cases passed in 65.62 seconds, covering the additional sidebar regression and completing validation of 35 distinct deterministic Firefox scenarios.
+The primary agent reviewed screenshots showing the Read selection prompt before playback and exact highlighting of editable text during playback.
+Backend code and the audio transport were unchanged.
+The extension was rebuilt in `dist/` and its temporary-install ZIP was regenerated.
+The user was asked to reload the extension and page, then retry the original workflow on their actual Notion or ChatGPT page; the automated reproductions use local document and conversation fixtures.

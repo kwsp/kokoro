@@ -34,6 +34,8 @@ export function createControls(actions: {
     offset: 0,
     highlightedIndex: null,
   };
+  let selectionAvailable = false;
+  let highlightNote: string | undefined;
   const addButton = (id: string, text: string, click: () => void) => {
     const button = document.createElement("button");
     button.id = id;
@@ -44,7 +46,10 @@ export function createControls(actions: {
     return button;
   };
   const play = addButton("play", "Play", () => {
-    if (snapshot.state === "playing" || snapshot.state === "preparing")
+    if (
+      !selectionAvailable &&
+      (snapshot.state === "playing" || snapshot.state === "preparing")
+    )
       actions.pause();
     else actions.play();
   });
@@ -59,10 +64,12 @@ export function createControls(actions: {
   document.documentElement.append(host);
   function update(next: Snapshot, note?: string) {
     snapshot = next;
+    highlightNote = note;
     host.dataset.state = next.state;
     host.dataset.sentence = String(next.index + 1);
-    play.textContent =
-      next.state === "playing" || next.state === "preparing"
+    play.textContent = selectionAvailable
+      ? "Read selection"
+      : next.state === "playing" || next.state === "preparing"
         ? "Pause"
         : next.state === "error"
           ? next.error?.startsWith("Page changed")
@@ -72,17 +79,22 @@ export function createControls(actions: {
             ? "Resume"
             : "Play";
     const label = next.state[0]!.toUpperCase() + next.state.slice(1);
-    status.textContent =
-      next.error ??
-      (next.total
-        ? `Sentence ${next.index + 1} of ${next.total} · ${label}`
-        : "Select a passage, then activate Kokoro again.");
+    status.textContent = selectionAvailable
+      ? "Selected text is ready to read."
+      : (next.error ??
+        (next.total
+          ? `Sentence ${next.index + 1} of ${next.total} · ${label}`
+          : "Select a passage, then press Read selection."));
     if (note) status.textContent += ` · ${note}`;
   }
   update(snapshot);
   return {
     host,
     update,
+    setSelectionAvailable: (available: boolean) => {
+      selectionAvailable = available;
+      update(snapshot, highlightNote);
+    },
     setClickMode: (enabled: boolean) =>
       clickMode.setAttribute("aria-pressed", String(enabled)),
     focus: () => play.focus(),

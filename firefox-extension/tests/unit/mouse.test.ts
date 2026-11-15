@@ -114,23 +114,34 @@ describe("pointer policy", () => {
 });
 
 describe("caret and rendered text hit testing", () => {
-  it("finds an inline sentence only within its actual text rectangles", () => {
-    const values = segments();
-    const text = document.querySelector("em")!.firstChild!;
-    Object.defineProperty(document, "caretPositionFromPoint", {
-      configurable: true,
-      value: () => ({ offsetNode: text, offset: 4 }),
-    });
-    for (const value of values)
-      for (const range of value.ranges)
-        range.getClientRects = () =>
-          [
-            { left: 10, right: 70, top: 10, bottom: 30, width: 60, height: 20 },
-          ] as unknown as DOMRectList;
-    expect(segmentAtPoint(document, values, 20, 20)).toBe(0);
-    expect(segmentAtPoint(document, values, 200, 20)).toBeUndefined();
-    expect(segmentAtPoint(document, values, 20, 40)).toBeUndefined();
-  });
+  it.each(["article", "aside", "nav", "footer"])(
+    "finds a selected inline sentence in %s only within its text rectangles",
+    (tag) => {
+      document.body.innerHTML = `<${tag}><p>First <em>sentence.</em> Second sentence.</p></${tag}>`;
+      const values = segments();
+      const text = document.querySelector("em")!.firstChild!;
+      Object.defineProperty(document, "caretPositionFromPoint", {
+        configurable: true,
+        value: () => ({ offsetNode: text, offset: 4 }),
+      });
+      for (const value of values)
+        for (const range of value.ranges)
+          range.getClientRects = () =>
+            [
+              {
+                left: 10,
+                right: 70,
+                top: 10,
+                bottom: 30,
+                width: 60,
+                height: 20,
+              },
+            ] as unknown as DOMRectList;
+      expect(segmentAtPoint(document, values, 20, 20)).toBe(0);
+      expect(segmentAtPoint(document, values, 200, 20)).toBeUndefined();
+      expect(segmentAtPoint(document, values, 20, 40)).toBeUndefined();
+    },
+  );
   it("ignores missing carets, element carets, detached and hidden text", () => {
     const values = segments();
     const node = document.querySelector("p")!.firstChild!;
