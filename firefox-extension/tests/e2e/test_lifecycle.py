@@ -192,15 +192,14 @@ def test_busy_after_cancellation_retries_with_bounds_and_recovers(configured, se
     assert time.monotonic() - started >= 0.35
     assert len(server.requests) == 4
     reader.click("stop")
-    for _ in range(3):
-        server.queue(status=429, retry_after="0")
+    server.queue(status=429, retry_after="60")
     reader.click("play")
     reader.wait_state("error")
     assert (
         "busy"
         in reader.host.shadow_root.find_element(By.CSS_SELECTOR, "[role=status]").text
     )
-    assert len(server.requests) == 7
+    assert len(server.requests) == 5
     reader.click("play")
     reader.wait_state("playing")
     reader.click("stop")

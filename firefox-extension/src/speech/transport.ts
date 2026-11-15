@@ -1,6 +1,8 @@
 import type { Settings } from "../settings";
 
 export const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
+const BUSY_RETRY_WINDOW_MS = 15_000;
+const MIN_BUSY_DELAY_MS = 250;
 
 export function abortableDelay(
   milliseconds: number,
@@ -27,12 +29,14 @@ export async function fetchSpeech(
   fetcher = fetch,
   maxBytes = MAX_AUDIO_BYTES,
   delay = abortableDelay,
+  now = () => performance.now(),
 ): Promise<ArrayBuffer> {
   if (!text.trim() || Array.from(text).length > 4096)
     throw new Error("Choose a shorter, nonempty passage.");
   signal.throwIfAborted();
   let response: Response;
-  for (let attempt = 0; ; attempt++) {
+  let retryDeadline: number | undefined;
+  for (;;) {
     response = await fetcher(`${settings.baseUrl}/v1/audio/speech`, {
       method: "POST",
       redirect: "error",
@@ -49,16 +53,19 @@ export async function fetchSpeech(
       }),
       signal,
     });
-    if (response.status !== 429 || attempt === 2) break;
+    if (response.status !== 429) break;
+    retryDeadline ??= now() + BUSY_RETRY_WINDOW_MS;
     const retry = response.headers.get("retry-after");
     const seconds = retry === null ? 0.25 : Number(retry);
     const milliseconds = Number.isFinite(seconds)
       ? Math.max(0, seconds * 1000)
       : Math.max(0, Date.parse(retry!) - Date.now());
-    if (!Number.isFinite(milliseconds) || milliseconds > 2000) break;
+    const wait = Math.max(MIN_BUSY_DELAY_MS, milliseconds);
+    if (!Number.isFinite(wait) || wait >= retryDeadline - now()) break;
     await response.body?.cancel();
-    await delay(milliseconds, signal);
+    await delay(wait, signal);
     signal.throwIfAborted();
+    if (now() >= retryDeadline) break;
   }
   if (!response.ok) {
     await response.body?.cancel();

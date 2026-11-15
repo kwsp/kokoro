@@ -104,6 +104,22 @@ def test_seek_discards_delayed_old_sentence(configured, server):
     assert [request["input"] for request in server.requests] == ["Mouse reading", LAST]
 
 
+def test_new_click_cancels_busy_retry_and_recovers_after_long_wait(configured, server):
+    driver = configured
+    reader = open_reader(driver, server)
+    reader.click("click-mode")
+    server.queue(status=429, retry_after="1")
+    for _ in range(4):
+        server.queue(status=429, retry_after="1")
+    click_point(driver, text_point(driver, "wrapped", last=True))
+    reader.wait.until(lambda _: len(server.requests) == 1)
+    click_point(driver, text_point(driver, "last-words"))
+    reader.wait_state("playing")
+    assert reader.highlight() == LAST
+    assert [request["input"] for request in server.requests] == [SECOND] + [LAST] * 5
+    reader.click("stop")
+
+
 def test_click_mode_preserves_page_controls_links_and_typing(configured, server):
     driver = configured
     reader = open_reader(driver, server)

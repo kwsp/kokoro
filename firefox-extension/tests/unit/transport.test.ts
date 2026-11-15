@@ -52,11 +52,12 @@ describe("speech transport", () => {
     [429, "busy"],
     [500, "failed"],
   ])("maps status %s to a useful message", async (status, message) => {
-    const mock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        new Response("private backend details", { status: Number(status) }),
-      );
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response("private backend details", {
+        status: Number(status),
+        headers: { "Retry-After": "60" },
+      }),
+    );
     await expect(
       fetchSpeech(settings, "Hello.", new AbortController().signal, mock),
     ).rejects.toThrow(String(message));
@@ -103,7 +104,7 @@ describe("speech transport", () => {
 
 describe("bounded busy retries", () => {
   const settings = { ...defaults, token: "secret" };
-  it("honors Retry-After and retries only twice", async () => {
+  it("honors Retry-After and eventually reports a bounded busy error", async () => {
     const mock = vi.fn<typeof fetch>().mockImplementation(
       async () =>
         new Response("busy", {
@@ -111,7 +112,10 @@ describe("bounded busy retries", () => {
           headers: { "Retry-After": "1" },
         }),
     );
-    const delay = vi.fn().mockResolvedValue(undefined);
+    let clock = 0;
+    const delay = vi.fn(async (ms: number) => {
+      clock += ms;
+    });
     await expect(
       fetchSpeech(
         settings,
@@ -120,11 +124,38 @@ describe("bounded busy retries", () => {
         mock,
         1000,
         delay,
+        () => clock,
       ),
     ).rejects.toThrow("busy");
-    expect(mock).toHaveBeenCalledTimes(3);
-    expect(delay).toHaveBeenCalledTimes(2);
-    expect(delay.mock.calls[0]![0]).toBe(1000);
+    expect(mock).toHaveBeenCalledTimes(15);
+    expect(delay).toHaveBeenCalledTimes(14);
+    expect(delay.mock.calls.every(([ms]) => ms === 1000)).toBe(true);
+  });
+  it("resumes after the previous two-retry window", async () => {
+    const mock = vi.fn<typeof fetch>().mockImplementation(async () =>
+      mock.mock.calls.length <= 4
+        ? new Response("busy", {
+            status: 429,
+            headers: { "Retry-After": "1" },
+          })
+        : new Response(new Uint8Array([1]), {
+            headers: { "Content-Type": "audio/wav" },
+          }),
+    );
+    const delay = vi.fn().mockResolvedValue(undefined);
+    expect(
+      new Uint8Array(
+        await fetchSpeech(
+          settings,
+          "Read.",
+          new AbortController().signal,
+          mock,
+          1000,
+          delay,
+        ),
+      ),
+    ).toEqual(new Uint8Array([1]));
+    expect(mock).toHaveBeenCalledTimes(5);
   });
   it("does not shorten a Retry-After beyond its bounded window", async () => {
     const mock = vi
@@ -145,6 +176,31 @@ describe("bounded busy retries", () => {
     ).rejects.toThrow("busy");
     expect(mock).toHaveBeenCalledOnce();
     expect(delay).not.toHaveBeenCalled();
+  });
+  it("does not fetch again when a delayed timer resumes after the deadline", async () => {
+    let clock = 0;
+    const mock = vi.fn<typeof fetch>().mockImplementation(
+      async () =>
+        new Response("busy", {
+          status: 429,
+          headers: { "Retry-After": "1" },
+        }),
+    );
+    const delay = vi.fn(async () => {
+      clock = 16_000;
+    });
+    await expect(
+      fetchSpeech(
+        settings,
+        "Read.",
+        new AbortController().signal,
+        mock,
+        1000,
+        delay,
+        () => clock,
+      ),
+    ).rejects.toThrow("busy");
+    expect(mock).toHaveBeenCalledOnce();
   });
   it("does not retry an aborted generation", async () => {
     const controller = new AbortController();
