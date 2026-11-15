@@ -2,7 +2,7 @@
 
 Draft for review, November 14, 2026.
 This document plans the extension; it does not implement or install it.
-It builds on the working local server described in [SERVER.md](../../SERVER.md).
+It builds on the working local server described in [server guide](../../kokoro_server/README.md).
 
 ## First usable version
 

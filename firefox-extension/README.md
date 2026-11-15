@@ -20,7 +20,7 @@ python -m kokoro_server
 The default address is `http://127.0.0.1:8880`.
 Wait for server startup to finish, and keep that terminal running while you use the extension.
 The default device is automatically MPS on supported Apple Silicon or CPU elsewhere; `--device cpu` forces CPU.
-See [SERVER.md](../SERVER.md) for setup, device selection, and endpoint details.
+See [server guide](../kokoro_server/README.md) for setup, device selection, and endpoint details.
 
 ## Install for personal use
 

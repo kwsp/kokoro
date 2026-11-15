@@ -60,7 +60,7 @@ An `update-notifier.config` warning is not a reason to use chmod or sudo.
 `dist/` and the unsigned ZIP in `artifacts/` are generated artifacts for temporary installation, not signed releases.
 
 From the repository root, install Python dependencies if needed.
-The E2E requirements provide Selenium; use the root server and server-test extras for pytest, Black, and Ruff as described in `SERVER.md`.
+The E2E requirements provide Selenium; use the root server and server-test extras for pytest, Black, and Ruff as described in `kokoro_server/README.md`.
 Run Black formatting and Ruff before each commit:
 
 ```bash

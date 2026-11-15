@@ -1,6 +1,6 @@
 # Kokoro speech server: implementation draft
 
-Design draft — November 14, 2026. Backend-only companion to [the extension plan](TTS_EXTENSION_PLAN.md). Implementation is now authorized with PCM/WAV only. The [execution plan](BACKEND_EXECUTION_PLAN.md) supersedes the scheduling details below: one active job with busy rejection replaces the proposed waiting queue and thread-to-async bridge, favoring simpler code.
+Design draft — November 14, 2026. Backend-only companion to [the extension plan](../../TTS_EXTENSION_PLAN.md). Implementation is now authorized with PCM/WAV only. The [execution plan](BACKEND_EXECUTION_PLAN.md) supersedes the scheduling details below: one active job with busy rejection replaces the proposed waiting queue and thread-to-async bridge, favoring simpler code.
 
 Wrap this repository's `KModel` and `KPipeline` in a Python HTTP server exposing `POST /v1/audio/speech`. The client points its OpenAI SDK at localhost; inference uses the downloaded Kokoro model. No requests go to OpenAI.
 
@@ -111,7 +111,7 @@ Load one `KModel`; reuse it across American/British English pipelines. Cache val
 
 PCM headers: `Content-Type: application/octet-stream`, `Cache-Control: no-store`, and documented encoding/sample-rate/channel headers. No `Content-Length` for the unknown-length stream; let Uvicorn handle HTTP framing. WAV uses `audio/wav` and a correct RIFF header; never concatenate standalone WAV files.
 
-Kokoro produces a complete audio tensor for each internal text chunk before yielding it. Network streaming cannot emit samples before that inference finishes. Reuse existing paragraph/phoneme chunking initially; clients can send short sentences for faster starts. Measure short and long inputs before introducing an additional sentence segmenter. [Local pipeline](kokoro/pipeline.py)
+Kokoro produces a complete audio tensor for each internal text chunk before yielding it. Network streaming cannot emit samples before that inference finishes. Reuse existing paragraph/phoneme chunking initially; clients can send short sentences for faster starts. Measure short and long inputs before introducing an additional sentence segmenter. [Local pipeline](../../kokoro/pipeline.py)
 
 A single worker serializes inference, including voice/pipeline cache changes. FastAPI's normal synchronous thread pool is not a model concurrency policy; choose the dedicated worker explicitly. [Starlette thread pool](https://starlette.dev/threadpool/)
 
