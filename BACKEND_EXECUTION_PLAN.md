@@ -47,3 +47,12 @@ Reports below are filled after each step is reviewed. Per the user's follow-up, 
 - Validation: `.venv/bin/python -m pytest tests/server/test_core.py -q` — **41 passed**. Tests cover schema boundaries, unsupported requests, audio encoding/headers, malformed audio, cache-only lookup, missing assets/language resources, model/pipeline/voice reuse, and empty warmup.
 - Interface for Step 2: `KokoroEngine(device="cpu")`; `.voices` maps voice IDs to language codes; `.synthesize(SpeechRequest)` yields PCM byte chunks; `.warmup()` exhausts a short synthesis. `EngineSetupError` and `UnknownVoiceError` identify setup and registry failures. Construction/synthesis are synchronous and must be serialized by the caller.
 - Remaining work: worker, HTTP routes and CLI do not exist yet; no real-model smoke test was run in this step.
+
+### Step 2 report — serial inference and streaming lifecycle
+
+- Added `kokoro_server/worker.py`: a single dedicated executor initializes and owns the engine, pulls PCM only on demand, and rejects overlapping jobs. Completed model chunks are divided into bounded writes; total audio output is capped.
+- Cancellation schedules generator cleanup after any in-flight operation. The active slot remains occupied until cleanup actually finishes. Operation/startup/shutdown waits are configurable and bounded, with late exceptions consumed after cancellation.
+- Added `tests/server/test_worker.py` covering reuse/thread ownership, admission, event-loop responsiveness, cancel/close races, timeouts, empty/invalid/excess audio, cumulative limits, failures, bounded shutdown, and configuration validation.
+- Validation: `.venv/bin/python -m pytest tests/server -q` — **62 passed** (41 core + 21 worker). `git diff --check` passed.
+- Interface for Step 3: `SpeechService(engine_factory=KokoroEngine, ...)`; `await start()`; `job = open(SpeechRequest)`; `await anext(job)` and `async for chunk in job`; `await job.aclose()` in a `finally`; `await service.close()`. Discovery uses `.voices`; admission state uses `.busy`. Specific errors identify busy/not-ready, empty output, audio limit, and operation timeout.
+- Limitation: Python cannot safely kill an in-progress inference thread. Shutdown stops waiting after its deadline, but process exit may still wait for that native operation to finish. No waiting request queue, producer bridge, or global watchdog was added.
