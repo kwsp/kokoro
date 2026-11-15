@@ -150,7 +150,7 @@ The session prefetches only one next WAV while current audio plays and does not 
 The streaming, retained-audio, and decode budgets stay within the logical 32 MiB limit, and native decoding must settle before another response is allocated after cancellation.
 Stored fetch and decoder settlement barriers resolve to void so they do not retain successful audio buffers.
 A failed prefetch is best-effort: the unread sentence gets its normal request budget when playback reaches it.
-HTTP 429 responses receive bounded, abortable Retry-After waits for up to 15 seconds, followed by an actionable Retry state. New generations cancel obsolete waits.
+HTTP 429 responses receive bounded, abortable Retry-After waits for up to 5 seconds, followed by an actionable Retry state. New generations cancel obsolete waits.
 Rejected response bodies are canceled, and settings or network errors remain recoverable.
 
 Source snapshots detect relevant text, node removal, and visibility changes while ignoring the extension's own controls and outline styles.

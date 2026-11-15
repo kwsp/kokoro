@@ -127,8 +127,8 @@ describe("bounded busy retries", () => {
         () => clock,
       ),
     ).rejects.toThrow("busy");
-    expect(mock).toHaveBeenCalledTimes(15);
-    expect(delay).toHaveBeenCalledTimes(14);
+    expect(mock).toHaveBeenCalledTimes(5);
+    expect(delay).toHaveBeenCalledTimes(4);
     expect(delay.mock.calls.every(([ms]) => ms === 1000)).toBe(true);
   });
   it("resumes after the previous two-retry window", async () => {
@@ -187,7 +187,7 @@ describe("bounded busy retries", () => {
         }),
     );
     const delay = vi.fn(async () => {
-      clock = 16_000;
+      clock = 6_000;
     });
     await expect(
       fetchSpeech(

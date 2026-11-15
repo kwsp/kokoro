@@ -1,7 +1,7 @@
 import type { Settings } from "../settings";
 
 export const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
-const BUSY_RETRY_WINDOW_MS = 15_000;
+const BUSY_RETRY_WINDOW_MS = 5_000;
 const MIN_BUSY_DELAY_MS = 250;
 
 export function abortableDelay(

@@ -127,7 +127,7 @@ Ready sentences advance immediately, and highlights follow playback rather than 
 The combined logical raw, streaming assembly, and decoded audio budget stays within 32 MiB.
 The background serializes synthesis requests across tabs and waits for an aborted fetch to settle before starting another.
 Server cancellation is cooperative, so a current model operation may finish after Stop.
-The extension retries busy responses for up to 15 seconds, respecting `Retry-After`. If the server remains busy, Retry is available for the same sentence. A new seek cancels the previous retry.
+The extension retries busy responses for up to 5 seconds, respecting `Retry-After`. If the server remains busy, Retry is available for the same sentence. A new seek cancels the previous retry.
 An unsuccessful prefetch is discarded and the unread sentence gets a normal request when needed.
 
 ## Current limits
