@@ -1,28 +1,57 @@
 body {
   max-width: 34rem;
-  margin: 3rem auto;
+  margin: 2rem auto;
   padding: 0 1rem;
   font: 16px system-ui;
   color: #182028;
   background: #f8fafb;
 }
+h1 {
+  margin: 0 0 0.35rem;
+}
+p {
+  margin: 0 0 1.25rem;
+}
+form {
+  display: grid;
+  gap: 0.8rem;
+}
 label {
   display: block;
-  margin: 1rem 0;
+  min-width: 0;
+}
+.voice-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.speed-field {
+  max-width: 10rem;
 }
 input,
 select {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  margin-top: 0.4rem;
-  padding: 0.6rem;
+  margin-top: 0.3rem;
+  padding: 0.5rem;
   font: inherit;
 }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 button {
-  padding: 0.65rem 1rem;
+  padding: 0.55rem 0.9rem;
   font: inherit;
 }
 #status {
   min-height: 1.5rem;
+  margin: 0.75rem 0 0;
+}
+@media (max-width: 28rem) {
+  .voice-fields {
+    grid-template-columns: 1fr;
+  }
 }

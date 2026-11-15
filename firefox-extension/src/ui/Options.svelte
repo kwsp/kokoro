@@ -105,23 +105,25 @@
       oninput={credentialsChanged}
     /></label
   >
-  <label>Voice<input id="voice" required bind:value={voice} /></label>
-  <label
-    >Available voices<select
-      id="voices"
-      value={voices.includes(voice) ? voice : ""}
-      onchange={(event) => {
-        if (event.currentTarget.value) voice = event.currentTarget.value;
-      }}
-      disabled={voices.length === 0}
-    >
-      <option value="" disabled
-        >{voices.length ? "Choose a voice" : "No voices available"}</option
+  <div class="voice-fields">
+    <label>Voice<input id="voice" required bind:value={voice} /></label>
+    <label
+      >Available voices<select
+        id="voices"
+        value={voices.includes(voice) ? voice : ""}
+        onchange={(event) => {
+          if (event.currentTarget.value) voice = event.currentTarget.value;
+        }}
+        disabled={voices.length === 0}
       >
-      {#each voices as item}<option value={item}>{item}</option>{/each}
-    </select></label
-  >
-  <label
+        <option value="" disabled
+          >{voices.length ? "Choose a voice" : "No voices available"}</option
+        >
+        {#each voices as item}<option value={item}>{item}</option>{/each}
+      </select></label
+    >
+  </div>
+  <label class="speed-field"
     >Speed<input
       id="speed"
       type="number"
@@ -132,9 +134,11 @@
       bind:value={speed}
     /></label
   >
-  <button type="submit">Save settings</button>
-  <button type="button" id="test" onclick={() => loadVoices(true)}
-    >Test connection</button
-  >
+  <div class="actions">
+    <button type="submit">Save settings</button>
+    <button type="button" id="test" onclick={() => loadVoices(true)}
+      >Test connection</button
+    >
+  </div>
 </form>
 <p id="status" role="status">{status}</p>
