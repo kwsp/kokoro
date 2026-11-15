@@ -38,10 +38,13 @@ server-test = [
     "httpx>=0.27,<1",
     "openai>=1.50,<3",
     "build>=1,<2",
+    "black>=24,<27",
+    "ruff>=0.8,<1",
 ]
 
 [project.scripts]
 kokoro = "kokoro.__main__:main"
+kokoro-server = "kokoro_server.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 only-include = ["kokoro", "kokoro_server"]

@@ -6,8 +6,12 @@ import pytest
 from kokoro_server.engine import UnknownVoiceError
 from kokoro_server.schemas import SpeechRequest
 from kokoro_server.worker import (
-    AudioLimitError, BusyError, EmptyAudioError, ServiceClosedError,
-    SpeechService, SynthesisTimeoutError,
+    AudioLimitError,
+    BusyError,
+    EmptyAudioError,
+    ServiceClosedError,
+    SpeechService,
+    SynthesisTimeoutError,
 )
 
 
@@ -16,9 +20,8 @@ def request(**kwargs):
 
 
 class Engine:
-    voices = {"af_heart": "a"}
-
     def __init__(self, synthesize=lambda: iter([b"\x01\x00" * 4])):
+        self.voices = {"af_heart": "a"}
         self.generate = synthesize
         self.threads = [threading.get_ident()]
         self.closed = False
@@ -41,6 +44,7 @@ async def wait_until(predicate):
     async def poll():
         while not predicate():
             await asyncio.sleep(0.001)
+
     await asyncio.wait_for(poll(), 2)
 
 
@@ -194,11 +198,16 @@ async def test_close_during_inference_discards_result_and_consumes_late_failure(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("chunks, expected", [
-    ([], EmptyAudioError), ([b""], EmptyAudioError),
-    ([b"\0\0" * 3], AudioLimitError), ([b"x"], ValueError),
-    ([None], ValueError),
-])
+@pytest.mark.parametrize(
+    "chunks, expected",
+    [
+        ([], EmptyAudioError),
+        ([b""], EmptyAudioError),
+        ([b"\0\0" * 3], AudioLimitError),
+        ([b"x"], ValueError),
+        ([None], ValueError),
+    ],
+)
 async def test_empty_invalid_and_excess_audio_close_generator(chunks, expected):
     engine = Engine(lambda: iter(chunks))
     service = SpeechService(lambda: engine, max_audio_bytes=4)
@@ -216,7 +225,9 @@ async def test_empty_invalid_and_excess_audio_close_generator(chunks, expected):
 
 @pytest.mark.asyncio
 async def test_cumulative_output_limit():
-    service = SpeechService(lambda: Engine(lambda: iter([b"\0\0"] * 3)), max_audio_bytes=4)
+    service = SpeechService(
+        lambda: Engine(lambda: iter([b"\0\0"] * 3)), max_audio_bytes=4
+    )
     await service.start()
     try:
         job = service.open(request())
@@ -320,10 +331,16 @@ async def test_startup_timeout():
         await service.close()
 
 
-@pytest.mark.parametrize("kwargs", [
-    {"operation_timeout": 0}, {"startup_timeout": float("inf")},
-    {"shutdown_timeout": -1}, {"max_audio_bytes": 3}, {"block_bytes": 0},
-])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"operation_timeout": 0},
+        {"startup_timeout": float("inf")},
+        {"shutdown_timeout": -1},
+        {"max_audio_bytes": 3},
+        {"block_bytes": 0},
+    ],
+)
 def test_invalid_configuration(kwargs):
     with pytest.raises(ValueError):
         SpeechService(**kwargs)

@@ -1,8 +1,8 @@
 """Synchronous, reusable Kokoro adapter. Its caller owns thread serialization."""
 
-from pathlib import Path
 import re
-from typing import Iterator
+from collections.abc import Iterator
+from pathlib import Path
 
 from .audio import to_pcm
 from .schemas import SpeechRequest
@@ -61,7 +61,8 @@ class KokoroEngine:
                     f"Missing {path.name}. Run `hf download {REPO_ID}` to complete the cache."
                 )
         self._voice_paths = {
-            path.stem: path for path in sorted((snapshot / "voices").glob("*.pt"))
+            path.stem: path
+            for path in sorted((snapshot / "voices").glob("*.pt"))
             if VOICE_NAME.fullmatch(path.stem) and path.is_file()
         }
         if not self._voice_paths:
@@ -73,9 +74,11 @@ class KokoroEngine:
         from kokoro import KModel, KPipeline
 
         self.voices = {name: name[0] for name in self._voice_paths}
-        self.model = KModel(
-            repo_id=REPO_ID, config=str(config), model=str(weights)
-        ).to(device).eval()
+        self.model = (
+            KModel(repo_id=REPO_ID, config=str(config), model=str(weights))
+            .to(device)
+            .eval()
+        )
         self._pipelines = {
             language: KPipeline(lang_code=language, repo_id=REPO_ID, model=self.model)
             for language in sorted(set(self.voices.values()))
@@ -103,7 +106,9 @@ class KokoroEngine:
     def warmup(self) -> None:
         voice = "af_heart" if "af_heart" in self.voices else next(iter(self.voices))
         generated_audio = False
-        for pcm in self.synthesize(SpeechRequest(model="kokoro", input="Hello.", voice=voice)):
+        for pcm in self.synthesize(
+            SpeechRequest(model="kokoro", input="Hello.", voice=voice)
+        ):
             generated_audio = generated_audio or bool(pcm)
         if not generated_audio:
             raise EngineSetupError("Kokoro produced no audio during warm-up")

@@ -56,3 +56,19 @@ Reports below are filled after each step is reviewed. Per the user's follow-up, 
 - Validation: `.venv/bin/python -m pytest tests/server -q` — **62 passed** (41 core + 21 worker). `git diff --check` passed.
 - Interface for Step 3: `SpeechService(engine_factory=KokoroEngine, ...)`; `await start()`; `job = open(SpeechRequest)`; `await anext(job)` and `async for chunk in job`; `await job.aclose()` in a `finally`; `await service.close()`. Discovery uses `.voices`; admission state uses `.busy`. Specific errors identify busy/not-ready, empty output, audio limit, and operation timeout.
 - Limitation: Python cannot safely kill an in-progress inference thread. Shutdown stops waiting after its deadline, but process exit may still wait for that native operation to finish. No waiting request queue, producer bridge, or global watchdog was added.
+
+### Step 3 report: HTTP API and CLI
+
+- Added `kokoro_server/app.py` and `__main__.py`, bearer authentication, OpenAI-shaped request errors, actual body-byte limits, loopback Host validation, health/model/voice discovery, PCM streaming, and complete WAV responses.
+- Added first-output error handling and disconnect monitoring before response headers, during WAV collection, and during PCM streaming.
+Late stream failures terminate the response and sanitize internal error messages.
+- The CLI reads `KOKORO_API_KEY`, defaults to `127.0.0.1:8880`, and runs one Uvicorn worker without reload.
+The `kokoro-server` console entry is included in package metadata.
+- Added API/CLI tests and OpenAPI authorization/binary response documentation.
+The primary agent also formatted and lint-fixed the existing core/worker modules and tests for the new formatting requirement.
+- Validation: **102 server tests passed** (41 core, 21 worker, 34 API, 6 CLI).
+Black check and Ruff check pass for `kokoro_server` and `tests/server`.
+- Interface for Step 4: `create_app(api_key, engine_factory=KokoroEngine, max_body_bytes=65536, service_options=None, allowed_hosts=("127.0.0.1", "localhost", "[::1]"))`.
+The injected factory supports fake-engine real-socket tests.
+Run `python -m kokoro_server --host 127.0.0.1 --port 8880 --device cpu` or the installed `kokoro-server` entry point.
+- Remaining validation: real Uvicorn sockets, installed OpenAI SDK interoperability, wheel inspection, and real-model HTTP tests are assigned to Step 4.
