@@ -13,7 +13,7 @@ export function createControls(actions: {
   const host = document.createElement("div");
   host.id = HOST_ID;
   host.style.cssText =
-    "all:initial;position:fixed;bottom:20px;right:20px;z-index:2147483647;max-width:calc(100vw - 24px)";
+    "all:initial;position:fixed;bottom:16px;right:16px;z-index:2147483647;max-width:calc(100vw - 32px)";
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent =
@@ -65,7 +65,9 @@ export function createControls(actions: {
       next.state === "playing" || next.state === "preparing"
         ? "Pause"
         : next.state === "error"
-          ? "Retry"
+          ? next.error?.startsWith("Page changed")
+            ? "Play"
+            : "Retry"
           : next.state === "paused"
             ? "Resume"
             : "Play";

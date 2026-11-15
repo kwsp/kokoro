@@ -15,7 +15,7 @@ def test_installed_extension_audio_and_highlight(configured, server, tmp_path):
     reader.click("play")
     reader.wait_state("playing")
     assert reader.highlight() == "Fixture article"
-    assert server.requests == [
+    assert server.requests[:1] == [
         {
             "model": "kokoro",
             "input": "Fixture article",

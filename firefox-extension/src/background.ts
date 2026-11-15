@@ -1,9 +1,16 @@
 import { loadSettings } from "./settings";
-import { fetchSpeech } from "./transport";
+import { fetchSpeech, MAX_AUDIO_BYTES } from "./transport";
+import { SpeechCoordinator, type Owner } from "./coordinator";
 
-let activeRequest: AbortController | undefined;
-let activeTab: number | undefined;
-let activeRequestId: string | undefined;
+const coordinator = new SpeechCoordinator((owner, type) =>
+  browser.tabs.sendMessage(
+    owner.tabId,
+    { type, sessionId: owner.sessionId, leaseId: owner.leaseId },
+    { frameId: 0 },
+  ),
+);
+const identifier = (value: unknown): value is string =>
+  typeof value === "string" && value.length > 0 && value.length <= 100;
 
 async function activate(tab: browser.tabs.Tab, selectionOnly = false) {
   if (tab.id === undefined) return;
@@ -21,7 +28,16 @@ async function activate(tab: browser.tabs.Tab, selectionOnly = false) {
       { type: "reader:activate", selectionOnly },
       { frameId: 0 },
     );
+    await browser.browserAction.setBadgeText({ tabId: tab.id, text: "" });
+    await browser.browserAction.setTitle({
+      tabId: tab.id,
+      title: "Read with Kokoro",
+    });
   } catch {
+    await browser.browserAction.setTitle({
+      tabId: tab.id,
+      title: "Kokoro cannot read this Firefox page. Try an ordinary webpage.",
+    });
     await browser.browserAction.setBadgeText({ tabId: tab.id, text: "!" });
   }
 }
@@ -51,28 +67,50 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
     return;
   const value = message as Record<string, unknown>;
   if (value.type === "settings:open") return browser.runtime.openOptionsPage();
-  if (value.type === "speech:cancel") {
-    if (activeTab === sender.tab.id && activeRequestId === value.requestId)
-      activeRequest?.abort();
+  if (!identifier(value.sessionId) || !identifier(value.leaseId)) return;
+  const owner: Owner = {
+    tabId: sender.tab.id,
+    sessionId: value.sessionId,
+    leaseId: value.leaseId,
+  };
+  if (value.type === "reader:release") {
+    coordinator.release(owner);
+    return Promise.resolve({ ok: true });
+  }
+  if (value.type === "speech:cancel" && identifier(value.requestId)) {
+    coordinator.cancel(owner, value.requestId);
     return Promise.resolve({ ok: true });
   }
   if (
-    value.type !== "speech:generate" ||
-    typeof value.text !== "string" ||
-    typeof value.requestId !== "string" ||
-    value.requestId.length > 100
+    value.type !== "reader:claim" &&
+    (value.type !== "speech:generate" ||
+      typeof value.text !== "string" ||
+      !identifier(value.requestId) ||
+      !Number.isInteger(value.maxBytes) ||
+      Number(value.maxBytes) < 1 ||
+      Number(value.maxBytes) > MAX_AUDIO_BYTES)
   )
     return;
-  activeRequest?.abort();
-  const controller = new AbortController();
-  activeRequest = controller;
-  activeTab = sender.tab.id;
-  activeRequestId = value.requestId;
-  const text = value.text;
   return (async () => {
     try {
-      const settings = await loadSettings();
-      const audio = await fetchSpeech(settings, text, controller.signal);
+      if (value.type === "reader:claim") {
+        await coordinator.claim(owner);
+        return { ok: true };
+      }
+      const audio = await coordinator.run(
+        owner,
+        value.requestId as string,
+        async (signal) => {
+          const settings = await loadSettings();
+          return fetchSpeech(
+            settings,
+            value.text as string,
+            signal,
+            fetch,
+            Number(value.maxBytes),
+          );
+        },
+      );
       return { ok: true, audio };
     } catch (error) {
       return {
@@ -82,16 +120,20 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
             ? error.message
             : "Cannot reach the local speech server. Start it and check Settings.",
       };
-    } finally {
-      if (activeRequest === controller) {
-        activeRequest = undefined;
-        activeTab = undefined;
-        activeRequestId = undefined;
-      }
     }
   })();
 });
 
-browser.tabs.onRemoved.addListener((tabId) => {
-  if (activeTab === tabId) activeRequest?.abort();
+browser.tabs.onRemoved.addListener((tabId) => coordinator.removeTab(tabId));
+browser.tabs.onUpdated.addListener((tabId, change) => {
+  if (change.status === "loading") coordinator.removeTab(tabId);
+});
+browser.storage.onChanged.addListener((changes, area) => {
+  if (
+    area === "local" &&
+    changes.settings &&
+    JSON.stringify(changes.settings.oldValue) !==
+      JSON.stringify(changes.settings.newValue)
+  )
+    void coordinator.settingsChanged();
 });

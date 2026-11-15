@@ -2,31 +2,66 @@ import type { Settings } from "./settings";
 
 export const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
 
+export function abortableDelay(
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<void> {
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
 export async function fetchSpeech(
   settings: Settings,
   text: string,
   signal: AbortSignal,
   fetcher = fetch,
+  maxBytes = MAX_AUDIO_BYTES,
+  delay = abortableDelay,
 ): Promise<ArrayBuffer> {
   if (!text.trim() || Array.from(text).length > 4096)
     throw new Error("Choose a shorter, nonempty passage.");
-  const response = await fetcher(`${settings.baseUrl}/v1/audio/speech`, {
-    method: "POST",
-    redirect: "error",
-    headers: {
-      Authorization: `Bearer ${settings.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "kokoro",
-      input: text,
-      voice: settings.voice,
-      speed: settings.speed,
-      response_format: "wav",
-    }),
-    signal,
-  });
+  signal.throwIfAborted();
+  let response: Response;
+  for (let attempt = 0; ; attempt++) {
+    response = await fetcher(`${settings.baseUrl}/v1/audio/speech`, {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        Authorization: `Bearer ${settings.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "kokoro",
+        input: text,
+        voice: settings.voice,
+        speed: settings.speed,
+        response_format: "wav",
+      }),
+      signal,
+    });
+    if (response.status !== 429 || attempt === 2) break;
+    const retry = response.headers.get("retry-after");
+    const seconds = retry === null ? 0.25 : Number(retry);
+    const milliseconds = Number.isFinite(seconds)
+      ? Math.max(0, seconds * 1000)
+      : Math.max(0, Date.parse(retry!) - Date.now());
+    if (!Number.isFinite(milliseconds) || milliseconds > 2000) break;
+    await response.body?.cancel();
+    await delay(milliseconds, signal);
+    signal.throwIfAborted();
+  }
   if (!response.ok) {
+    await response.body?.cancel();
     if (response.status === 401)
       throw new Error("The server token is incorrect. Open Settings.");
     if (response.status === 429)
@@ -36,8 +71,10 @@ export async function fetchSpeech(
   if (
     !response.headers.get("content-type")?.includes("audio/wav") ||
     !response.body
-  )
+  ) {
+    await response.body?.cancel();
     throw new Error("The server did not return WAV audio.");
+  }
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -46,7 +83,7 @@ export async function fetchSpeech(
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_AUDIO_BYTES)
+      if (size > Math.min(maxBytes, MAX_AUDIO_BYTES))
         throw new Error(
           "The generated audio is too large. Choose a shorter passage.",
         );

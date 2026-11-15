@@ -3,7 +3,10 @@ import { loadSettings } from "../../src/settings";
 import { fetchSpeech } from "../../src/transport";
 
 vi.mock("../../src/settings", () => ({ loadSettings: vi.fn() }));
-vi.mock("../../src/transport", () => ({ fetchSpeech: vi.fn() }));
+vi.mock("../../src/transport", () => ({
+  fetchSpeech: vi.fn(),
+  MAX_AUDIO_BYTES: 16 * 1024 * 1024,
+}));
 const settings = {
   baseUrl: "http://127.0.0.1:8880",
   token: "private-token",
@@ -15,9 +18,10 @@ let listener: (
   message: unknown,
   sender: browser.runtime.MessageSender,
 ) => Promise<unknown> | undefined;
-const settle = async () => {
-  for (let n = 0; n < 5; n++) await Promise.resolve();
-};
+let settingsChanged: (
+  changes: Record<string, browser.storage.StorageChange>,
+  area: string,
+) => void;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -38,16 +42,60 @@ beforeEach(async () => {
       setBadgeText: vi.fn(),
     },
     menus: { create: vi.fn(), onClicked: { addListener: vi.fn() } },
-    tabs: { onRemoved: { addListener: vi.fn() } },
+    tabs: {
+      onRemoved: { addListener: vi.fn() },
+      onUpdated: { addListener: vi.fn() },
+      sendMessage: vi.fn().mockResolvedValue(undefined),
+    },
+    storage: {
+      onChanged: {
+        addListener: (handler: typeof settingsChanged) => {
+          settingsChanged = handler;
+        },
+      },
+    },
   });
   await import("../../src/background");
+  await listener(
+    { type: "reader:claim", sessionId: "doc", leaseId: "lease" },
+    sender,
+  );
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("background request routing", () => {
+  it("ignores an unchanged settings save and invalidates an actual settings update", async () => {
+    settingsChanged(
+      { settings: { oldValue: settings, newValue: { ...settings } } },
+      "local",
+    );
+    expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
+    settingsChanged(
+      {
+        settings: { oldValue: settings, newValue: { ...settings, speed: 1.5 } },
+      },
+      "local",
+    );
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      1,
+      {
+        type: "reader:settings",
+        sessionId: "doc",
+        leaseId: "lease",
+      },
+      { frameId: 0 },
+    );
+  });
   it("rejects non-page senders, frames, and malformed requests before transport", () => {
-    const message = { type: "speech:generate", text: "Read.", requestId: "1" };
+    const message = {
+      type: "speech:generate",
+      text: "Read.",
+      requestId: "1",
+      sessionId: "doc",
+      leaseId: "lease",
+      maxBytes: 1000,
+    };
     expect(listener(message, {})).toBeUndefined();
     expect(listener(message, { ...sender, frameId: 1 })).toBeUndefined();
     expect(listener({ ...message, requestId: 5 }, sender)).toBeUndefined();
@@ -62,6 +110,9 @@ describe("background request routing", () => {
         type: "speech:generate",
         text: "Read.",
         requestId: "1",
+        sessionId: "doc",
+        leaseId: "lease",
+        maxBytes: 1000,
         url: "https://untrusted.invalid",
       },
       sender,
@@ -70,38 +121,27 @@ describe("background request routing", () => {
       settings,
       "Read.",
       expect.any(AbortSignal),
+      fetch,
+      1000,
     );
     expect(result).toEqual({ ok: true, audio });
     expect(JSON.stringify(result)).not.toContain("private-token");
   });
-  it("an old request cancellation cannot cancel its replacement", async () => {
-    const resolvers: ((audio: ArrayBuffer) => void)[] = [];
-    vi.mocked(fetchSpeech).mockImplementation(
-      () => new Promise((resolve) => resolvers.push(resolve)),
-    );
-    const first = listener(
-      { type: "speech:generate", text: "First.", requestId: "old" },
-      sender,
-    );
-    await settle();
-    const firstSignal = vi.mocked(fetchSpeech).mock.calls[0]![2];
-    const second = listener(
-      { type: "speech:generate", text: "Second.", requestId: "new" },
-      sender,
-    );
-    await settle();
-    const secondSignal = vi.mocked(fetchSpeech).mock.calls[1]![2];
-    expect(firstSignal.aborted).toBe(true);
-    await listener({ type: "speech:cancel", requestId: "old" }, sender);
-    await listener(
-      { type: "speech:cancel", requestId: "new" },
-      { ...sender, tab: { ...sender.tab!, id: 2 } },
-    );
-    expect(secondSignal.aborted).toBe(false);
-    await listener({ type: "speech:cancel", requestId: "new" }, sender);
-    expect(secondSignal.aborted).toBe(true);
-    for (const resolve of resolvers) resolve(new ArrayBuffer(44));
-    await Promise.all([first, second]);
+  it("rejects requests without the current lease", async () => {
+    expect(
+      await listener(
+        {
+          type: "speech:generate",
+          text: "Read.",
+          requestId: "1",
+          sessionId: "other",
+          leaseId: "stale",
+          maxBytes: 1000,
+        },
+        sender,
+      ),
+    ).toMatchObject({ ok: false });
+    expect(fetchSpeech).not.toHaveBeenCalled();
   });
   it("reports an actionable connection failure without raw network details", async () => {
     vi.mocked(fetchSpeech).mockRejectedValueOnce(
@@ -109,7 +149,14 @@ describe("background request routing", () => {
     );
     expect(
       await listener(
-        { type: "speech:generate", text: "Read.", requestId: "1" },
+        {
+          type: "speech:generate",
+          text: "Read.",
+          requestId: "1",
+          sessionId: "doc",
+          leaseId: "lease",
+          maxBytes: 1000,
+        },
         sender,
       ),
     ).toEqual({

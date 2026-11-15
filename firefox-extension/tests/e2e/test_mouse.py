@@ -1,6 +1,6 @@
 """Drive actual page pointers through the installed extension's click mode."""
 
-from harness import Reader, activate_reader, tone
+from harness import Reader, activate_reader
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -63,11 +63,10 @@ def test_wrapped_hover_click_seek_and_escape(configured, server, tmp_path):
     assert server.requests[0]["input"] == SECOND
     reader.click("play")
     reader.wait_state("paused")
-    server.queue(body=tone(5))
     click_point(driver, text_point(driver, "last-words"))
     reader.wait_state("playing")
     assert reader.highlight() == LAST
-    assert server.requests[-1]["input"] == LAST
+    assert any(request["input"] == LAST for request in server.requests)
     ActionChains(driver).send_keys(Keys.ESCAPE).perform()
     assert (
         reader.host.shadow_root.find_element(By.ID, "click-mode").get_attribute(

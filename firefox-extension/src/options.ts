@@ -20,6 +20,7 @@ void browser.storage.local.get("settings").then((stored) => {
 
 document.getElementById("settings")!.addEventListener("submit", (event) => {
   event.preventDefault();
+  status.textContent = "Saving settings…";
   void (async () => {
     try {
       await browser.storage.local.set({ settings: readForm() });

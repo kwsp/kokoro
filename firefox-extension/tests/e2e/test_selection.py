@@ -36,7 +36,9 @@ def test_context_menu_selection_and_reactivation(configured, server, tmp_path):
     reader.click("play")
     reader.wait_state("playing")
     assert reader.highlight() == "Replacement text only."
-    assert server.requests[-1]["input"] == "Replacement text only."
+    assert any(
+        request["input"] == "Replacement text only." for request in server.requests
+    )
     reader.click("stop")
 
 
@@ -53,16 +55,16 @@ def test_shortcut_pause_resume_and_stop(configured, server, tmp_path):
     assert reader.highlight("kokoro-paused") == SENTENCES[0]
     driver.save_screenshot(str(tmp_path / "selection-paused.png"))
     reader.remains("paused", 2.2)
-    assert len(server.requests) == 1
+    assert sum(request["input"] == SENTENCES[0] for request in server.requests) == 1
     reader.click("play")
     reader.wait_state("playing")
     assert reader.highlight() == SENTENCES[0]
-    assert len(server.requests) == 1
+    assert sum(request["input"] == SENTENCES[0] for request in server.requests) == 1
     reader.click("stop")
     reader.remains("ready", 2.2)
     assert reader.highlight() == ""
     assert reader.highlight("kokoro-paused") == ""
-    assert len(server.requests) == 1
+    assert sum(request["input"] == SENTENCES[0] for request in server.requests) == 1
     reader.click("close")
     assert driver.find_elements(By.ID, "kokoro-reader-controls") == []
 
@@ -74,7 +76,7 @@ def test_stop_discards_delayed_response(configured, server):
     activate_reader(driver)
     reader = Reader(driver)
     reader.click("play")
-    reader.wait.until(lambda _: len(server.requests) == 1)
+    reader.wait.until(lambda _: len(server.requests) >= 1)
     assert reader.state() == "preparing"
     reader.click("stop")
     gate.set()
@@ -83,10 +85,7 @@ def test_stop_discards_delayed_response(configured, server):
     reader.click("play")
     reader.wait_state("playing")
     assert reader.highlight() == SENTENCES[0]
-    assert [request["input"] for request in server.requests] == [
-        SENTENCES[0],
-        SENTENCES[0],
-    ]
+    assert [request["input"] for request in server.requests].count(SENTENCES[0]) == 2
     reader.click("stop")
 
 
@@ -107,8 +106,5 @@ def test_malformed_wav_has_recoverable_retry(configured, server):
     reader.click("play")
     reader.wait_state("playing")
     assert reader.highlight() == SENTENCES[0]
-    assert [request["input"] for request in server.requests] == [
-        SENTENCES[0],
-        SENTENCES[0],
-    ]
+    assert [request["input"] for request in server.requests].count(SENTENCES[0]) == 2
     reader.click("stop")

@@ -138,3 +138,41 @@ All four mouse cases then passed in 18.24 seconds, completing validation of the 
 The primary agent reviewed the wrapped-sentence hover screenshot and confirmed an exact visible preview, clear toggle state, and unchanged ordinary page controls.
 
 Remaining scope for the final step: cross-tab ownership, bounded prefetch/retries, mutation/settings lifecycle, visual/accessibility review, packaging, and real-backend listening validation.
+
+### Step 5 report
+
+Implemented global reading ownership with a fresh lease for every Play or Resume, including cached audio.
+A shared handoff barrier waits for prior pages to acknowledge Stop, even when several claims overlap.
+The background waits for an aborted synthesis fetch to settle before starting its replacement and rejects stale leases, requests, and results.
+Navigation and tab closure release ownership, while background tabs continue playing.
+
+The session prefetches only one next WAV while current audio plays and does not decode or highlight it early.
+The streaming, retained-audio, and decode budgets stay within the logical 32 MiB limit, and native decoding must settle before another response is allocated after cancellation.
+Stored fetch and decoder settlement barriers resolve to void so they do not retain successful audio buffers.
+A failed prefetch is best-effort: the unread sentence gets its normal request budget when playback reaches it.
+HTTP 429 responses receive at most two retries with bounded, abortable Retry-After waits, followed by an actionable Retry state.
+Rejected response bodies are canceled, and settings or network errors remain recoverable.
+
+Source snapshots detect relevant text, node removal, and visibility changes while ignoring the extension's own controls and outline styles.
+Changes stop playback with “Page changed”, and Play refreshes the retained article or selection scope.
+Toolbar activation with the same retained selection focuses the controls without resetting playback.
+Settings updates discard old voice/speed audio and restart the current sentence; paused sessions remain paused until resumed.
+A delayed settings notice still invalidates a cached buffer after Resume has claimed a newer lease, while saving identical settings leaves playback alone.
+The toolbar action has a native SVG icon, clears its failure badge after successful activation, and explains unsupported Firefox pages in its title.
+
+Unit tests cover ownership races and acknowledgments, serialized cancellation, bounded retries, stale work, prefetch timing and memory, source mutations, settings invalidation, and response cleanup.
+The installed-Firefox suite adds deterministic lifecycle, error recovery, background-tab, layout, zoom, and keyboard scenarios while preserving all thirteen earlier scenarios.
+The README documents manual server startup, temporary personal installation, feature boundaries, validation commands, and a short audible listening checklist.
+
+Validation passed: TypeScript, ESLint, Prettier, 147 unit tests, build, scoped web-ext with zero errors and warnings, Black, and Ruff.
+The final installed-Firefox run passed all 28 cases in 141.96 seconds: 26 deterministic scenarios plus real Kokoro CPU and automatic MPS cases on Apple Silicon.
+Both real-backend cases verified the reported device, actual WAV generation, pause/resume, click seeking, completion, and highlight cleanup without a test audio substitute.
+Time from Play to first audio was 0.44 seconds on CPU and 1.93 seconds on MPS in these warm local runs; these observations are not benchmarks.
+The prior full deterministic pass also completed all 24 cases present before the last settings and narrow-layout additions.
+
+Screenshot review caught uneven page-edge spacing at zoom, so the controls now use symmetric 16-pixel gutters and include a 320 CSS-pixel viewport case.
+All five headed Firefox presentation and keyboard checks passed in 17.03 seconds, and the primary agent reviewed the light, dark, and 320 CSS-pixel screenshots.
+Packaging produced `firefox-extension/artifacts/kokoro_page_reader-0.1.0.zip`, containing the production bundles, manifest, SVG action icon, unchanged Readability, and licenses.
+The artifact is unsigned and intended for Firefox's temporary add-on loader.
+The backend implementation is unchanged; its regression suite separately passed 134 tests with three opt-in tests skipped.
+Audible speaker output and the user's preferred voice still need the README's manual listening check in a normal Firefox session.

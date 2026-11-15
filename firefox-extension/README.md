@@ -1,8 +1,49 @@
-# Kokoro Firefox reader development
+# Kokoro Firefox reader
 
-The extension is being implemented according to [IMPLEMENTATION.md](IMPLEMENTATION.md).
-Steps 1 through 4 provide article and selection reading with sentence highlights, pause/resume, Stop, Retry, and explicit click-to-read.
-Cross-tab ownership, prefetch, and the remaining lifecycle handling are added in the final step.
+Read articles or selected text aloud with the local Kokoro server, with sentence highlighting and a compact page control bar.
+This personal-use extension sends text only to the loopback server you configure and does not require an OpenAI account.
+The implementation plan and per-step validation reports are in [IMPLEMENTATION.md](IMPLEMENTATION.md).
+
+## Start the local server
+
+From the repository root, install the server extra and prepare the cached model and English language resource if needed:
+
+```bash
+source .venv/bin/activate
+python -m pip install -e '.[server]'
+hf download hexgrad/Kokoro-82M
+python -m spacy download en_core_web_sm
+export KOKORO_API_KEY='replace-with-your-local-token'
+python -m kokoro_server
+```
+
+The default address is `http://127.0.0.1:8880`.
+Wait for server startup to finish, and keep that terminal running while you use the extension.
+The default device is automatically MPS on supported Apple Silicon or CPU elsewhere; `--device cpu` forces CPU.
+See [SERVER.md](../SERVER.md) for setup, device selection, and endpoint details.
+
+## Install for personal use
+
+Build with Node.js and npm:
+
+```bash
+cd firefox-extension
+npm ci
+npm run build
+```
+
+1. Open `about:debugging#/runtime/this-firefox` in Firefox.
+2. Choose **Load Temporary Add-on**, then select this directory's `dist/manifest.json`.
+3. In the extension settings, enter the server address and the same local token used above.
+4. Use **Test connection** to confirm access and discover cached voices, choose a voice and speed, then save.
+5. On an ordinary webpage, click Kokoro in Firefox's Extensions menu or use **Alt+Shift+K**, then press **Play** in the page bar.
+
+Pin Kokoro to the toolbar from Firefox's Extensions menu if you want one-click access.
+Temporary add-ons are removed when Firefox restarts, so repeat the loading step for your next session.
+After rebuilding, use **Reload** in `about:debugging` and reload the reading page.
+`npm run dev` instead starts a separate development Firefox profile.
+`npm run package` creates an unsigned ZIP in `artifacts/` that can also be selected by the temporary add-on loader.
+This development artifact is not a signed permanent Firefox add-on.
 
 ## Build and checks
 
@@ -17,9 +58,9 @@ npm run build
 npm run lint:extension
 ```
 
-Load `dist/manifest.json` through Firefox's `about:debugging` temporary add-on loader, or use `npm run dev`.
+## Read and interact
+
 The extension opens its settings page when first installed.
-Configure the loopback server URL and token, then use Alt+Shift+K or the toolbar button on a page to display the reader.
 Select a passage across ordinary page text and activate Kokoro with the toolbar action, Alt+Shift+K, or the “Read selection with Kokoro” context menu.
 Press Play in the compact reader bar.
 The selected text is split into sentences, and only the current sentence is highlighted while audio plays.
@@ -27,6 +68,7 @@ Pause keeps the current sentence and exact audio offset; Resume continues from t
 Stop cancels pending work and resets to the beginning of the selected passage.
 Retry repeats the current sentence after an error.
 A fresh selection followed by activation replaces the reading scope without creating another control bar.
+Activating again with the same retained selection focuses the existing bar and preserves playback.
 Activation without a selection reads visible prose from a suitable article or main element, including headings, lists, and quotations.
 Pages without those semantic roots use Mozilla Readability on a detached clone.
 The retained text must map uniquely to ordered visible source blocks; ambiguous articles or mappings offer selection reading instead.
@@ -49,6 +91,30 @@ Links, buttons, typing, editable areas, details toggles, modified clicks, right/
 Clicks outside actual text rectangles do not select a nearby sentence.
 When the Highlight API is absent, click seeking still works with the spoken-block outline, but hover preview is unavailable.
 
+Only one page reads at a time, including paused pages that retain audio.
+Starting or resuming another page stops the previous one.
+Audio continues when its tab is in the background; navigation, closing the tab, Stop, or Close cancels its work.
+Changing voice, speed, token, or endpoint restarts the current sentence with the new settings; paused reading stays paused and uses the new settings when resumed.
+Saving unchanged values preserves playback.
+If the source text, visibility, or relevant page structure changes, the reader stops with “Page changed”; press **Play** to refresh the same reading scope.
+Selection refresh stays within the retained DOM ranges, and removing the selected nodes may require a fresh selection.
+
+The reader requests complete WAV files from `/v1/audio/speech` and uses Web Audio's playback clock to advance highlights.
+It fetches at most one next sentence while the current sentence plays and keeps the logical raw/decoded audio budget within 32 MiB.
+The background serializes synthesis requests across tabs and waits for an aborted fetch to settle before starting another.
+Server cancellation is cooperative, so a current model operation may finish after Stop.
+A busy response is retried at most twice with bounded `Retry-After` waits; continued failures offer Retry without advancing the sentence.
+An unsuccessful prefetch is discarded and the unread sentence gets a normal request when needed.
+
+## Current limits
+
+- English voices supported by the local server; sentence highlighting rather than word timing.
+- Top-level HTML documents and ordinary DOM text; Firefox internal pages, PDF viewers, cross-origin frames, and shadow-root selections are outside this version's scope.
+- Conservative article extraction may ask for a manual selection on ambiguous or highly dynamic pages.
+- Complete WAV decoding can leave a short gap when next-sentence generation takes longer than playback.
+- Loopback HTTP endpoints only, with a shared token stored in Firefox extension settings; the token is not included in page controls or content-script messages.
+- The 32 MiB budget covers retained raw audio, streaming assembly, and decoded samples; browser-internal copies and garbage collection are outside the extension's control.
+
 ## Installed-extension test
 
 Install the Python test dependency from the repository root:
@@ -56,6 +122,8 @@ Install the Python test dependency from the repository root:
 ```bash
 .venv/bin/python -m pip install -r firefox-extension/tests/e2e/requirements.txt
 .venv/bin/python -m pytest firefox-extension/tests/e2e -q -s
+.venv/bin/python -m black --check firefox-extension/tests/e2e
+.venv/bin/python -m ruff check firefox-extension/tests/e2e
 ```
 
 Build the extension before running the test.
@@ -77,6 +145,32 @@ The test directory retains `speaking.png`, `final.png`, `browser-controls.json`,
 The artifacts omit request authorization headers and options-page HTML.
 The shortcut test dispatches the command in browser chrome because WebDriver content-page key events do not reliably reach extension commands.
 Audible speaker output still requires a manual listening check.
+
+Ownership and lifecycle cases check cross-tab handoff, cached-audio Resume, background playback, navigation, source replacement, settings changes, prefetch timing, and recovery after busy responses, bad tokens, and unavailable servers.
+Presentation cases capture light/dark pages, a narrow viewport, and 200% Firefox zoom, and check Tab, Space, Escape, and Enter through the real controls.
+
+Run the opt-in real-backend tests after caching the model and language resource:
+
+```bash
+KOKORO_TEST_REAL_EXTENSION=1 .venv/bin/python -m pytest firefox-extension/tests/e2e/test_real_server.py -q -s
+FIREFOX_HEADED=1 .venv/bin/python -m pytest firefox-extension/tests/e2e/test_presentation.py -q -s
+```
+
+The real-backend suite starts isolated servers on dynamic ports for CPU and automatic device selection, checks `/health`, and exercises actual Kokoro WAV playback, pause/resume, click seeking, and completion in installed Firefox.
+On Apple Silicon the automatic case expects MPS.
+The ordinary deterministic suite skips these slower tests unless explicitly enabled.
+The backend regression suite remains available with `.venv/bin/python -m pytest tests/server -q` from the repository root.
+
+## Manual listening check
+
+1. Start the local server, temporarily load the extension, and test the connection in Settings.
+2. Read a familiar article and confirm intelligible speech, comfortable volume, and highlights following the spoken sentence.
+3. Pause and resume mid-sentence, then use Click to read to jump forward and confirm obsolete speech stops.
+4. Start another tab and confirm only that page speaks; return to the first tab and try Resume or Play.
+5. Change the voice or speed during reading and confirm the current sentence restarts with that setting.
+6. Stop, close the bar, and navigate away, checking that speaker output stops each time.
+
+Automation checks real audio completion and highlight timing but cannot establish what comes out of your speakers or how a chosen voice sounds to you.
 
 ## Readability build and validation
 

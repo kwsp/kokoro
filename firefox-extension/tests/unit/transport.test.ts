@@ -4,6 +4,22 @@ import { fetchSpeech, MAX_AUDIO_BYTES } from "../../src/transport";
 
 describe("speech transport", () => {
   const settings = { ...defaults, token: "local-secret" };
+  it.each([401, 429, 500, 200])(
+    "cancels rejected response bodies for status %s",
+    async (status) => {
+      const cancel = vi.fn();
+      const response = new Response(new ReadableStream({ cancel }), {
+        status,
+        headers: { "Content-Type": "application/json", "Retry-After": "60" },
+      });
+      const mock = vi.fn<typeof fetch>().mockResolvedValue(response);
+      await expect(
+        fetchSpeech(settings, "Hello.", new AbortController().signal, mock),
+      ).rejects.toThrow();
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(mock).toHaveBeenCalledOnce();
+    },
+  );
   it("requests WAV with bearer auth and preserves binary bytes", async () => {
     const bytes = new Uint8Array([0, 128, 255, 1]);
     const mock = vi
@@ -83,4 +99,74 @@ describe("speech transport", () => {
       expect(mock).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("bounded busy retries", () => {
+  const settings = { ...defaults, token: "secret" };
+  it("honors Retry-After and retries only twice", async () => {
+    const mock = vi.fn<typeof fetch>().mockImplementation(
+      async () =>
+        new Response("busy", {
+          status: 429,
+          headers: { "Retry-After": "1" },
+        }),
+    );
+    const delay = vi.fn().mockResolvedValue(undefined);
+    await expect(
+      fetchSpeech(
+        settings,
+        "Read.",
+        new AbortController().signal,
+        mock,
+        1000,
+        delay,
+      ),
+    ).rejects.toThrow("busy");
+    expect(mock).toHaveBeenCalledTimes(3);
+    expect(delay).toHaveBeenCalledTimes(2);
+    expect(delay.mock.calls[0]![0]).toBe(1000);
+  });
+  it("does not shorten a Retry-After beyond its bounded window", async () => {
+    const mock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response("busy", { status: 429, headers: { "Retry-After": "30" } }),
+      );
+    const delay = vi.fn();
+    await expect(
+      fetchSpeech(
+        settings,
+        "Read.",
+        new AbortController().signal,
+        mock,
+        1000,
+        delay,
+      ),
+    ).rejects.toThrow("busy");
+    expect(mock).toHaveBeenCalledOnce();
+    expect(delay).not.toHaveBeenCalled();
+  });
+  it("does not retry an aborted generation", async () => {
+    const controller = new AbortController();
+    const mock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("busy", { status: 429 }));
+    const delay = vi.fn(async () => {
+      controller.abort();
+    });
+    await expect(
+      fetchSpeech(settings, "Read.", controller.signal, mock, 1000, delay),
+    ).rejects.toThrow();
+    expect(mock).toHaveBeenCalledOnce();
+  });
+  it("limits prefetch bytes to the caller's remaining budget", async () => {
+    const mock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(new Uint8Array(50), {
+        headers: { "Content-Type": "audio/wav" },
+      }),
+    );
+    await expect(
+      fetchSpeech(settings, "Read.", new AbortController().signal, mock, 49),
+    ).rejects.toThrow("too large");
+  });
 });

@@ -7,6 +7,7 @@ export interface AudioAdapter {
   pause(): number;
   stop(): void;
   close(): void;
+  waitForDecode?(): Promise<void>;
 }
 
 /** Reject malformed or oversized PCM WAV before allocating decoded float samples. */
@@ -49,6 +50,7 @@ export class WebAudioPlayer implements AudioAdapter {
   private source?: AudioBufferSourceNode;
   private startedAt = 0;
   private offset = 0;
+  private decoding: Promise<void> = Promise.resolve();
 
   constructor(
     private createContext = () => new AudioContext({ sampleRate: 24000 }),
@@ -60,6 +62,13 @@ export class WebAudioPlayer implements AudioAdapter {
     return this.context.resume();
   }
 
+  waitForDecode(): Promise<void> {
+    return this.decoding.then(
+      () => {},
+      () => {},
+    );
+  }
+
   async decode(bytes: ArrayBuffer): Promise<AudioBuffer> {
     if (!this.context) throw new Error("Press Play to enable audio.");
     const rawBytes = bytes.byteLength;
@@ -67,7 +76,12 @@ export class WebAudioPlayer implements AudioAdapter {
       throw new Error("The generated audio exceeds the playback memory limit.");
     let buffer: AudioBuffer;
     try {
-      buffer = await this.context.decodeAudioData(bytes);
+      const decoding = this.context.decodeAudioData(bytes);
+      this.decoding = decoding.then(
+        () => {},
+        () => {},
+      );
+      buffer = await decoding;
     } catch {
       throw new Error(
         "The server returned audio that Firefox could not decode. Retry this sentence.",

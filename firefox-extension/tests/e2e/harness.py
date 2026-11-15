@@ -42,6 +42,7 @@ class Reply:
     body: bytes | None = None
     status: int = 200
     gate: threading.Event | None = None
+    retry_after: str | None = None
 
 
 class FixtureServer:
@@ -57,7 +58,7 @@ class FixtureServer:
             def log_message(self, *args):
                 pass
 
-            def send(self, status, body, content_type):
+            def send(self, status, body, content_type, retry_after=None):
                 owner.history.append(
                     {
                         "method": self.command,
@@ -70,6 +71,8 @@ class FixtureServer:
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
+                if retry_after is not None:
+                    self.send_header("Retry-After", retry_after)
                 self.end_headers()
                 try:
                     self.wfile.write(body)
@@ -115,7 +118,10 @@ class FixtureServer:
                     self.send(504, b"gate timed out", "text/plain")
                     return
                 self.send(
-                    reply.status, wav if reply.body is None else reply.body, "audio/wav"
+                    reply.status,
+                    wav if reply.body is None else reply.body,
+                    "audio/wav",
+                    reply.retry_after,
                 )
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -123,11 +129,11 @@ class FixtureServer:
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self.thread.start()
 
-    def queue(self, *, body=None, status=200, delayed=False):
+    def queue(self, *, body=None, status=200, delayed=False, retry_after=None):
         gate = threading.Event() if delayed else None
         if gate:
             self.gates.append(gate)
-        self.replies.append(Reply(body, status, gate))
+        self.replies.append(Reply(body, status, gate, retry_after))
         return gate
 
     def close(self):

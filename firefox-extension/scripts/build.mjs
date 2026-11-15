@@ -17,7 +17,7 @@ await build({
   define: testFallback ? { Highlight: "undefined" } : {},
 });
 await Promise.all(
-  ["manifest.json", "src/options.html"].map((path) =>
+  ["manifest.json", "src/options.html", "src/icon.svg"].map((path) =>
     copyFile(path, join(outdir, path.split("/").at(-1))),
   ),
 );
