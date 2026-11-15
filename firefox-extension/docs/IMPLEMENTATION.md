@@ -285,3 +285,12 @@ All four headless toolbar layout screenshots matched baseline byte-for-byte.
 Seven focused headed Firefox presentation, keyboard, and diagnostics cases passed after the update. The final candidate passed 203 unit tests, TypeScript and Svelte checking, ESLint, Prettier, Black, Ruff, build, extension lint, and packaging.
 
 With `gzip -cn`, the renderer-preserving build's content and options scripts measured 15,483 and 1,328 bytes. The final Svelte build measured 54,927 and 40,408 bytes, respectively. The unsigned ZIP grew from 53,442 to 133,196 bytes.
+
+### Title abbreviation sentence boundaries
+
+Sentence mapping now joins Intl.Segmenter boundaries after Mr., Mrs., Ms., Dr.,
+and Prof. when followed by an uppercase letter. It merges original offsets before
+applying the existing length limit, preserving DOM ranges and highlighting.
+Regression coverage includes titles, repeated titles across inline elements and
+emoji, ordinary sentence boundaries, and U.S. followed by lowercase prose.
+All 210 unit tests, type checking, ESLint, and the production build passed.

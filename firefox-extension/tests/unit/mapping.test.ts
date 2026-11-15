@@ -23,6 +23,36 @@ function sourceText(segment: ReturnType<typeof read>[number]) {
 }
 
 describe("selection source mapping", () => {
+  it.each(["Mr", "Mrs", "Ms", "Dr", "Prof"])(
+    "keeps %s. with the following name",
+    (title) => {
+      const segments = read(`<p>${title}. Huang arrived. Next sentence.</p>`);
+      expect(segments.map((s) => s.text)).toEqual([
+        `${title}. Huang arrived.`,
+        "Next sentence.",
+      ]);
+    },
+  );
+  it("preserves source ranges for repeated titles across inline nodes", () => {
+    const segments = read(
+      "<p>😀 <em>Mr.</em> Huang met <b>Dr.</b> Chen. Done.</p>",
+    );
+    expect(segments.map((s) => s.text)).toEqual([
+      "😀 Mr. Huang met Dr. Chen.",
+      "Done.",
+    ]);
+    expect(sourceText(segments[0]!)).toBe("😀 Mr. Huang met Dr. Chen.");
+    expect(sourceText(segments[1]!)).toBe("Done.");
+  });
+  it("preserves ordinary boundaries and initialisms", () => {
+    const segments = read("<p>The U.S. economy grew. Huang arrived. Mr.</p>");
+    expect(segments.map((s) => s.text)).toEqual([
+      "The U.S. economy grew.",
+      "Huang arrived.",
+      "Mr.",
+    ]);
+  });
+
   it("clips exact selection boundaries across inline nodes", () => {
     document.body.innerHTML =
       "<p>Before. Read <em>this 😀</em> sentence. After.</p>";

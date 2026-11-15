@@ -172,15 +172,37 @@ export function rangesForOffsets(
 export function segmentMappedText(mapped: MappedText): ReadingSegment[] {
   const segments: ReadingSegment[] = [];
   const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
-  for (const sentence of segmenter.segment(mapped.text)) {
+  const sentences = segmenter.segment(mapped.text)[Symbol.iterator]();
+  let current = sentences.next();
+  while (!current.done) {
+    let sentence = current.value;
     let start = sentence.index;
-    const end = start + sentence.segment.length;
+    let end = start + sentence.segment.length;
+    current = sentences.next();
+    // Intl sentence boundaries can separate English titles from names.
+    // Merge offsets, not strings, to preserve the original DOM source mapping.
+    while (
+      !current.done &&
+      /(?:^|[^\p{L}\p{N}_])(?:Mr|Mrs|Ms|Dr|Prof)\.\s*$/u.test(
+        sentence.segment,
+      ) &&
+      /^\p{Lu}/u.test(current.value.segment)
+    ) {
+      sentence = current.value;
+      end = sentence.index + sentence.segment.length;
+      current = sentences.next();
+    }
     while (start < end) {
       while (start < end && /\s/u.test(mapped.text[start]!)) start++;
       if (start === end) break;
-      const points = Array.from(mapped.text.slice(start, end));
-      let length = points.slice(0, MAX_SEGMENT_CODEPOINTS).join("").length;
-      if (points.length > MAX_SEGMENT_CODEPOINTS) {
+      let length = 0;
+      let points = 0;
+      for (const point of mapped.text.slice(start, end)) {
+        if (points === MAX_SEGMENT_CODEPOINTS) break;
+        length += point.length;
+        points++;
+      }
+      if (start + length < end) {
         const prefix = mapped.text.slice(start, start + length);
         const boundary = Math.max(
           prefix.lastIndexOf(" "),
