@@ -260,3 +260,17 @@ The panel updates elapsed time only while open, and its expansion preference is 
 
 Validation: 202 unit tests passed, and both advanced-panel tests passed in headed Firefox.
 The full Firefox suite passed all 49 cases, including real CPU and MPS coverage.
+
+## Source and UI refactor
+
+The [execution plan](REFACTOR_PLAN.md) splits layout, styles, renderer evaluation, and browser wiring into reviewable changes.
+The source tree separates UI, reading, speech, and icon assets while keeping the same manifest and installed script paths.
+The build packages the options stylesheet and bundles toolbar and highlight CSS as text for their existing style elements.
+Toolbar placement and the page-owned outline fallback retain their inline styles.
+The runtime speech adapter owns content-to-background request, ownership, and cancellation messages.
+Click targeting takes the actual toolbar host, which removes its dependency on the UI module.
+Page, selection, and editor-preview lifecycle stay coordinated in the content entry point.
+
+Firefox 157.0.1 passed 46 installed-extension tests on this branch, including the new connection test. The four opt-in real-backend cases were skipped for this run.
+The original extension passed 45 deterministic cases, with the same four skips. A focused baseline comparison under restrictive page CSP observed matching toolbar styles, highlight registration, and cleanup.
+The final branch passed 202 Vitest tests, TypeScript, ESLint, Prettier, Black, Ruff, and a clean build, extension lint, and package.

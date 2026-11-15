@@ -22,7 +22,7 @@ Prefer simple, robust, maintainable solutions and preserve existing user changes
 All source paths below are relative to `firefox-extension/src/`.
 
 - `content.ts` wires the reader together, `ui/controls.ts` renders controls and diagnostics, and `speech/session.ts` owns playback state, buffering, cancellation, and generation changes.
-- `speech/audio.ts` handles audio playback, `speech/transport.ts` sends requests, and `speech/coordinator.ts` and `background.ts` coordinate ownership and serialized backend access across tabs.
+- `speech/audio.ts` handles audio playback, `speech/transport.ts` sends backend requests, `speech/runtime-transport.ts` handles content-to-background transport, and `speech/coordinator.ts` and `background.ts` coordinate ownership and serialized backend access across tabs.
 - `reading/selection.ts`, `reading/extraction.ts`, `reading/mapping.ts`, and `reading/highlighting.ts` map readable text and sentence highlights to original DOM ranges; `reading/readability-vendor.ts` adapts the injected vendor script.
 - `reading/mouse.ts` handles click-to-read targeting, `reading/source-watch.ts` watches changes, and `settings.ts` and `ui/options.ts` manage settings and the options page. `assets/icon.svg` is the extension icon.
 - Preserve the original page DOM and exact sentence ranges, including UTF-16 offsets, whitespace, inline nodes, and the user's selection.
