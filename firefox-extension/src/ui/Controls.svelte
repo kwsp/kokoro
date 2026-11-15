@@ -29,6 +29,7 @@
   let clickFeedback = $state<string | undefined>();
   let expanded = $state(false);
   let now = $state(performance.now());
+  let diagnosticSnapshot: Snapshot | undefined = $state.raw();
   let playButton: HTMLButtonElement;
   let timer: ReturnType<typeof setInterval> | undefined;
   let closed = false;
@@ -44,6 +45,7 @@
     if (timer) clearInterval(timer);
     timer = undefined;
     if (value) {
+      diagnosticSnapshot = snapshot;
       now = performance.now();
       timer = setInterval(() => {
         now = performance.now();
@@ -97,7 +99,10 @@
   export function update(next: Snapshot, note?: string) {
     snapshot = { ...next };
     highlightNote = note;
-    if (expanded) now = performance.now();
+    if (expanded) {
+      diagnosticSnapshot = snapshot;
+      now = performance.now();
+    }
   }
   export function setSelectionAvailable(value: boolean) {
     selectionAvailable = value;
@@ -120,7 +125,11 @@
 
 <section aria-label="Kokoro reader">
   <div class="advanced" id="advanced-panel" hidden={!expanded}>
-    <div><Diagnostics {snapshot} {now} /></div>
+    <div>
+      {#if diagnosticSnapshot}
+        <Diagnostics snapshot={diagnosticSnapshot} {now} />
+      {/if}
+    </div>
   </div>
   <nav>
     <strong>Kokoro</strong>
