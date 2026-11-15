@@ -26,13 +26,30 @@ dependencies = [
     "transformers"
 ]
 
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+    "pydantic>=2.9,<3",
+]
+server-test = [
+    "pytest>=8,<10",
+    "pytest-asyncio>=0.24,<2",
+    "httpx>=0.27,<1",
+    "openai>=1.50,<3",
+    "build>=1,<2",
+]
+
 [project.scripts]
 kokoro = "kokoro.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-only-include = ["kokoro"]
+only-include = ["kokoro", "kokoro_server"]
 only-packages = true
 
 [project.urls]
 Homepage = "https://github.com/hexgrad/kokoro"
 Repository = "https://github.com/hexgrad/kokoro"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
