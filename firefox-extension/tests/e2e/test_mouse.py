@@ -178,3 +178,18 @@ def test_whitespace_modifiers_drag_and_mode_off_do_not_seek(configured, server):
     click_point(driver, first)
     assert driver.find_elements(By.ID, "kokoro-reader-controls") == []
     assert server.requests == []
+
+
+def test_click_target_survives_same_text_replacement(configured, server):
+    driver = configured
+    reader = open_reader(driver, server)
+    reader.click("click-mode")
+    driver.execute_script(
+        "const item = document.getElementById('wrapped'); item.replaceWith(item.cloneNode(true));"
+    )
+    point = text_point(driver, "wrapped", last=True)
+    move(driver, point)
+    reader.wait.until(lambda _: reader.highlight("kokoro-hover") == SECOND)
+    click_point(driver, point)
+    reader.wait_state("playing")
+    assert server.requests[0]["input"] == SECOND

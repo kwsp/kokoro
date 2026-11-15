@@ -254,3 +254,51 @@ def test_navigation_discards_pending_audio(configured, server):
     empty.remains("error", 0.5)
     assert empty.highlight() == ""
     assert len(server.requests) == 1
+
+
+def test_same_text_replacement_keeps_playback_and_updates_highlight(configured, server):
+    driver = configured
+    server.queue(body=tone(5))
+    reader = open_reader(driver, server)
+    reader.click("play")
+    reader.wait_state("playing")
+    assert reader.highlight() == "Fixture article"
+    reader.wait.until(lambda _: len(server.requests) == 3)
+    requests_before = list(server.requests)
+    driver.execute_script(
+        "const h = document.querySelector('h1'); h.replaceWith(h.cloneNode(true));"
+    )
+    reader.remains("playing", 0.4)
+    assert server.requests == requests_before
+    assert reader.highlight() == "Fixture article"
+    assert driver.execute_script(
+        "return Array.from(CSS.highlights.get('kokoro-speaking'))[0].startContainer.isConnected"
+    )
+    driver.execute_script(
+        "document.querySelector('h1').firstChild.data = 'Changed title';"
+    )
+    reader.wait_state("error")
+    assert (
+        "Page changed"
+        in reader.host.shadow_root.find_element(By.CSS_SELECTOR, "[role=status]").text
+    )
+
+
+def test_same_text_replacement_updates_paused_highlight(configured, server):
+    driver = configured
+    server.queue(body=tone(5))
+    reader = open_reader(driver, server)
+    reader.click("play")
+    reader.wait_state("playing")
+    reader.click("play")
+    reader.wait_state("paused")
+    driver.execute_script(
+        "const h = document.querySelector('h1'); h.replaceWith(h.cloneNode(true));"
+    )
+    reader.remains("paused", 0.4)
+    assert reader.highlight("kokoro-paused") == "Fixture article"
+    assert driver.execute_script(
+        "return Array.from(CSS.highlights.get('kokoro-paused'))[0].startContainer.isConnected"
+    )
+    reader.click("play")
+    reader.wait_state("playing")

@@ -295,3 +295,7 @@ applying the existing length limit, preserving DOM ranges and highlighting.
 Regression coverage includes titles, repeated titles across inline elements and
 emoji, ordinary sentence boundaries, and U.S. followed by lowercase prose.
 All 210 unit tests, type checking, ESLint, and the production build passed.
+
+### Source replacement during playback
+
+For automatically extracted pages, the source watcher can rebind sentence ranges after a same-text DOM replacement without restarting playback. It verifies the complete readable node sequence, exact text (including whitespace), ancestor tag paths and block grouping before rebuilding ranges from offsets saved before the mutation. Selection and editor scopes remain conservative and invalidate on replacement. Changed text, visibility, disconnected roots, or mappings that cannot be verified still invalidate the session.

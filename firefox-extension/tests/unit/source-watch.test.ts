@@ -79,6 +79,79 @@ describe("source lifecycle", () => {
     await settle();
     expect(changed).toHaveBeenCalledOnce();
   });
+  it("rebinds exact ranges across repeated replacements and catches later edits", async () => {
+    document.body.innerHTML =
+      "<article><p><b>Mr.</b> <em>Huang 😀</em> arrived.</p></article>";
+    const reading = extractPage(document);
+    const changed = vi.fn();
+    const remapped = vi.fn();
+    watchSource(
+      reading.root,
+      reading.segments,
+      false,
+      changed,
+      "page",
+      undefined,
+      remapped,
+    );
+    const original = reading.segments[0]!.ranges.map((r) => [
+      r.toString(),
+      r.startOffset,
+      r.endOffset,
+    ]);
+    for (let i = 0; i < 2; i++) {
+      const paragraph = document.querySelector("p")!;
+      paragraph.replaceWith(paragraph.cloneNode(true));
+      await settle();
+      expect(changed).not.toHaveBeenCalled();
+      expect(
+        reading.segments[0]!.ranges.map((r) => [
+          r.toString(),
+          r.startOffset,
+          r.endOffset,
+        ]),
+      ).toEqual(original);
+      expect(
+        reading.segments[0]!.ranges.every((r) => r.startContainer.isConnected),
+      ).toBe(true);
+      expect(reading.segments[0]!.block).toBe(document.querySelector("p"));
+    }
+    expect(remapped).toHaveBeenCalledTimes(2);
+    document.querySelector("em")!.firstChild!.textContent = "changed";
+    await settle();
+    expect(changed).toHaveBeenCalledOnce();
+  });
+  it("invalidates when a mapped whitespace node changes", async () => {
+    document.body.innerHTML =
+      "<article><p><b>Mr.</b> <em>Huang</em> arrived.</p></article>";
+    const reading = extractPage(document);
+    const changed = vi.fn();
+    watchSource(reading.root, reading.segments, false, changed);
+    document.querySelector("b")!.nextSibling!.textContent = "  ";
+    await settle();
+    expect(changed).toHaveBeenCalledOnce();
+  });
+  it("invalidates when an identical first replacement accompanies a later edit", async () => {
+    const reading = extractPage(document);
+    const changed = vi.fn();
+    watchSource(reading.root, reading.segments, false, changed);
+    const first = document.querySelector("p")!;
+    first.replaceWith(first.cloneNode(true));
+    document.querySelectorAll("p")[1]!.firstChild!.textContent = "Changed.";
+    await settle();
+    expect(changed).toHaveBeenCalledOnce();
+  });
+  it("invalidates selected text rather than broadening the selection", async () => {
+    const paragraph = document.querySelector("p")!;
+    const range = document.createRange();
+    range.setStart(paragraph.firstChild!, 2);
+    range.setEnd(paragraph.firstChild!, 7);
+    const changed = vi.fn();
+    watchSource(document.body, segmentsFromRanges([range]), true, changed);
+    paragraph.replaceWith(paragraph.cloneNode(true));
+    await settle();
+    expect(changed).toHaveBeenCalledOnce();
+  });
   it("reports node replacement without exposing source text", async () => {
     const root = document.querySelector("article")!;
     const report = vi.fn();

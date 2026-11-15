@@ -220,6 +220,17 @@ function mount() {
           },
           editorRoot && !selectionScope ? "document" : undefined,
           (data) => debug.record("source-invalidated", data),
+          () => {
+            debug.record("source-remapped");
+            clickReader.reset();
+            const state = session.snapshot;
+            highlight.show(
+              state.highlightedIndex === null
+                ? undefined
+                : segments[state.highlightedIndex],
+              state.state === "paused",
+            );
+          },
         );
     } catch (error) {
       debug.record("extraction-failed");
