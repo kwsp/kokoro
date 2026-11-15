@@ -13,6 +13,7 @@ await build({
     options: "src/ui/options.ts",
   },
   bundle: true,
+  loader: { ".css": "text" },
   alias: { "@mozilla/readability": "./src/reading/readability-vendor.ts" },
   outdir,
   target: "firefox142",
@@ -21,9 +22,12 @@ await build({
   define: testFallback ? { Highlight: "undefined" } : {},
 });
 await Promise.all(
-  ["manifest.json", "src/ui/options.html", "src/assets/icon.svg"].map((path) =>
-    copyFile(path, join(outdir, path.split("/").at(-1))),
-  ),
+  [
+    "manifest.json",
+    "src/ui/options.html",
+    "src/ui/options.css",
+    "src/assets/icon.svg",
+  ].map((path) => copyFile(path, join(outdir, path.split("/").at(-1)))),
 );
 await copyFile("../LICENSE", join(outdir, "LICENSE.txt"));
 await copyFile(

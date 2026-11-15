@@ -1,11 +1,13 @@
+import hoverCss from "./hover.css?raw";
+import playbackCss from "./playback.css?raw";
+
 import type { ReadingSegment } from "./mapping";
 
 export class HoverHighlight {
   private style = document.createElement("style");
 
   constructor() {
-    this.style.textContent =
-      "::highlight(kokoro-hover){background-color:#ccefe8;color:#17252c;text-decoration-line:underline;text-decoration-style:dotted;text-decoration-color:#167465;text-decoration-thickness:2px}";
+    this.style.textContent = hoverCss;
     document.documentElement.append(this.style);
   }
 
@@ -40,8 +42,7 @@ export class SpeakingHighlight {
   private outline?: OutlineBackup;
 
   constructor() {
-    this.style.textContent =
-      "::highlight(kokoro-speaking){background-color:#ffe39a;color:#17252c;text-decoration-line:underline;text-decoration-color:#995200;text-decoration-thickness:2px}::highlight(kokoro-paused){background-color:#dce8ee;color:#17252c;text-decoration-line:underline;text-decoration-style:dotted;text-decoration-color:#466674;text-decoration-thickness:2px}";
+    this.style.textContent = playbackCss;
     document.documentElement.append(this.style);
   }
 

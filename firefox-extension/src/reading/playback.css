@@ -1,0 +1,15 @@
+::highlight(kokoro-speaking) {
+  background-color: #ffe39a;
+  color: #17252c;
+  text-decoration-line: underline;
+  text-decoration-color: #995200;
+  text-decoration-thickness: 2px;
+}
+::highlight(kokoro-paused) {
+  background-color: #dce8ee;
+  color: #17252c;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: #466674;
+  text-decoration-thickness: 2px;
+}

@@ -1,0 +1,8 @@
+::highlight(kokoro-hover) {
+  background-color: #ccefe8;
+  color: #17252c;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: #167465;
+  text-decoration-thickness: 2px;
+}
