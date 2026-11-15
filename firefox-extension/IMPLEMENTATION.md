@@ -248,3 +248,15 @@ The two focused buffering cases also passed in headed Firefox in 15.02 seconds a
 TypeScript, ESLint, Prettier, Black, Ruff, production build, and scoped web-ext validation passed.
 The development build and temporary-install ZIP were regenerated, and the user was asked to reload the add-on and Reddit page for a listening check.
 The server retains one worker, one active synthesis job, and automatic MPS selection; extra HTTP workers would not improve this serial client by themselves.
+
+### Advanced diagnostics prototype
+
+The optional panel reports decoded future audio and a bounded view of the current and upcoming sentences.
+Preparation time covers waiting for any prior decode, the server request, and decoding; it is not a measurement of model inference.
+An underrun begins when playback reaches an unprepared next sentence and ends when that sentence starts.
+Startup, seeks, and resumes do not start an underrun.
+A gap interrupted by pause or error records the elapsed wait, and stop resets the statistics.
+The panel updates elapsed time only while open, and its expansion preference is held in extension storage.
+
+Validation: 202 unit tests passed, and both advanced-panel tests passed in headed Firefox.
+The full Firefox suite passed all 49 cases, including real CPU and MPS coverage.

@@ -206,3 +206,7 @@ The browser tests verify that extraction leaves the original page DOM intact and
 The outline-fallback test installs a separate temporary build with `Highlight` defined as unavailable at build time.
 This simulates the missing API while using the same manifest, permissions, real activation path, and fallback implementation.
 The ordinary build and the other Firefox tests use runtime feature detection; no test commands are exposed to the page.
+
+The reader's Advanced button opens a diagnostic panel above the playback controls.
+It reports prepared future audio, the current preparation stage, recent preparation time, and gaps between sentences.
+The expansion preference is saved in extension storage.

@@ -17,7 +17,7 @@ export function createControls(actions: {
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent =
-    ":host{color-scheme:light}section{font:14px system-ui;color:#17252c;background:#fff;border:1px solid #c8d5db;border-radius:12px;padding:12px;box-shadow:0 4px 22px #0002}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #bbc9ce;background:#f5f9fa;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid #238072}button[aria-pressed=true]{background:#d5eee7;border-color:#238072}p{margin:8px 0 0;font-size:12px;max-width:32em;overflow-wrap:anywhere}";
+    ":host{color-scheme:light}section{font:14px system-ui;color:#17252c;background:#fff;border:1px solid #c8d5db;border-radius:12px;padding:12px;box-shadow:0 4px 22px #0002}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #bbc9ce;background:#f5f9fa;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid #238072}button[aria-pressed=true]{background:#d5eee7;border-color:#238072}p{margin:8px 0 0;font-size:12px;max-width:32em;overflow-wrap:anywhere}.advanced{max-height:min(45vh,24em);overflow:auto;margin-bottom:10px;border-bottom:1px solid #c8d5db;padding-bottom:8px}.advanced p{margin:5px 0}.advanced ol{font-size:12px;margin:6px 0;padding-left:2em}.advanced li{margin:4px 0;overflow-wrap:anywhere}.advanced[hidden]{display:none}";
   shadow.append(style);
   const panel = document.createElement("section");
   panel.setAttribute("aria-label", "Kokoro reader");
@@ -61,14 +61,91 @@ export function createControls(actions: {
   clickMode.title = "Choose a sentence on the page. Escape exits this mode.";
   addButton("settings", "Settings", actions.settings);
   addButton("close", "Close", actions.close);
-  panel.append(nav, status);
+  const advanced = document.createElement("div");
+  advanced.className = "advanced";
+  advanced.id = "advanced-panel";
+  advanced.hidden = true;
+  const details = document.createElement("div");
+  advanced.append(details);
+  const toggle = addButton("advanced-toggle", "Advanced", () => {
+    setExpanded(advanced.hidden);
+    void browser.storage.local
+      .set({ advancedExpanded: !advanced.hidden })
+      .catch(() => {});
+  });
+  toggle.setAttribute("aria-controls", advanced.id);
+  toggle.setAttribute("aria-expanded", "false");
+  let timer: ReturnType<typeof setInterval> | undefined;
+  let closed = false;
+  let preferenceChanged = false;
+  function renderDiagnostics() {
+    const d = snapshot.diagnostics;
+    details.replaceChildren();
+    if (!d) return;
+    const line = (text: string) => {
+      const p = document.createElement("p");
+      p.textContent = text;
+      details.append(p);
+    };
+    line(
+      `Ready ahead: ${d.readyCount} sentences · ${d.readySeconds.toFixed(1)} seconds`,
+    );
+    line(`Preparation: ${d.stage}${d.reason ? ` · ${d.reason}` : ""}`);
+    line(
+      `Latest preparation: ${d.lastPreparationMs === undefined ? "none yet" : `${(d.lastPreparationMs / 1000).toFixed(1)} seconds`}`,
+    );
+    const gapMs =
+      d.gap && (d.gap.durationMs ?? performance.now() - d.gap.started);
+    line(
+      `Underruns: ${d.underruns} · total wait ${((d.totalWaitMs + (d.gap && d.gap.durationMs === undefined ? gapMs! : 0)) / 1000).toFixed(1)} seconds`,
+    );
+    if (d.gap && gapMs !== undefined)
+      line(
+        `Last gap: sentence ${d.gap.index + 1} · ${(gapMs / 1000).toFixed(1)} seconds · ${d.gap.stage}`,
+      );
+    const list = document.createElement("ol");
+    list.start = snapshot.index + 1;
+    for (const sentence of d.sentences) {
+      const item = document.createElement("li");
+      const snippet =
+        sentence.text.length > 100
+          ? `${sentence.text.slice(0, 100)}…`
+          : sentence.text;
+      item.textContent = `${snippet} · ${sentence.status}${sentence.duration === undefined ? "" : ` · ${sentence.duration.toFixed(1)} seconds`}`;
+      list.append(item);
+    }
+    details.append(list);
+  }
+  function setExpanded(expanded: boolean) {
+    advanced.hidden = !expanded;
+    toggle.setAttribute("aria-expanded", String(expanded));
+    if (timer) clearInterval(timer);
+    timer = undefined;
+    if (expanded) {
+      renderDiagnostics();
+      timer = setInterval(renderDiagnostics, 1000);
+    }
+  }
+  toggle.addEventListener("click", () => {
+    preferenceChanged = true;
+  });
+  void browser.storage.local
+    .get("advancedExpanded")
+    .then((stored) => {
+      if (!closed && !preferenceChanged && stored.advancedExpanded === true)
+        setExpanded(true);
+    })
+    .catch(() => {});
+  panel.append(advanced, nav, status);
   shadow.append(panel);
   document.documentElement.append(host);
   function update(next: Snapshot, note?: string) {
     snapshot = next;
+    if (!advanced.hidden) renderDiagnostics();
     highlightNote = note;
-    host.dataset.state = next.state;
-    host.dataset.sentence = String(next.index + 1);
+    if (host.dataset.state !== next.state) host.dataset.state = next.state;
+    const sentence = String(next.index + 1);
+    if (host.dataset.sentence !== sentence) host.dataset.sentence = sentence;
     play.textContent = selectionAvailable
       ? "Read selection"
       : next.state === "playing" || next.state === "preparing"
@@ -81,19 +158,20 @@ export function createControls(actions: {
             ? "Resume"
             : "Play";
     const label = next.state[0]!.toUpperCase() + next.state.slice(1);
-    status.textContent = selectionAvailable
+    let statusText = selectionAvailable
       ? "Selected text is ready to read."
       : (next.error ??
         (next.total
           ? `Sentence ${next.index + 1} of ${next.total} · ${label}`
           : "Select a passage, then press Read selection."));
-    if (note) status.textContent += ` · ${note}`;
+    if (note) statusText += ` · ${note}`;
     if (clickModeEnabled) {
-      if (clickFeedback) status.textContent = clickFeedback;
+      if (clickFeedback) statusText = clickFeedback;
       else if (!next.total)
-        status.textContent = "Hover over document text to choose a sentence.";
-      status.textContent += " · Click a sentence · Esc to exit";
+        statusText = "Hover over document text to choose a sentence.";
+      statusText += " · Click a sentence · Esc to exit";
     }
+    if (status.textContent !== statusText) status.textContent = statusText;
   }
   update(snapshot);
   return {
@@ -115,6 +193,10 @@ export function createControls(actions: {
       update(snapshot, highlightNote);
     },
     focus: () => play.focus(),
-    close: () => host.remove(),
+    close: () => {
+      closed = true;
+      if (timer) clearInterval(timer);
+      host.remove();
+    },
   };
 }

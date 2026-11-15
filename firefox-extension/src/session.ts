@@ -11,6 +11,24 @@ export interface Snapshot {
   offset: number;
   highlightedIndex: number | null;
   error?: string;
+  diagnostics?: Diagnostics;
+}
+export interface Diagnostics {
+  readyCount: number;
+  readySeconds: number;
+  stage:
+    "waiting for previous decode" | "waiting for server" | "decoding" | "idle";
+  reason?: string;
+  sentences: {
+    index: number;
+    text: string;
+    status: string;
+    duration?: number;
+  }[];
+  lastPreparationMs?: number;
+  underruns: number;
+  totalWaitMs: number;
+  gap?: { index: number; started: number; stage: string; durationMs?: number };
 }
 export interface SpeechTransport {
   fetch(
@@ -35,6 +53,7 @@ interface Prefetch {
   index: number;
   ready: Promise<void>;
   buffer?: AudioBuffer;
+  failed?: boolean;
 }
 
 function bufferBytes(buffer?: AudioBuffer): number {
@@ -52,6 +71,70 @@ export class ReadingSession {
   private index = 0;
   private offset = 0;
   private error?: string;
+  private stage: Diagnostics["stage"] = "idle";
+  private preparingIndex?: number;
+  private lastPreparationMs?: number;
+  private underruns = 0;
+  private totalWaitMs = 0;
+  private gap?: Diagnostics["gap"];
+
+  private notify() {
+    this.changed(this.snapshot);
+  }
+  private getDiagnostics(): Diagnostics {
+    const ready = this.prefetch.filter((entry) => entry.buffer);
+    const seconds = ready.reduce(
+      (sum, entry) => sum + entry.buffer!.duration,
+      0,
+    );
+    let reason: string | undefined;
+    if (this.stage === "idle") {
+      if (this.state === "paused") reason = "paused";
+      else if (this.state === "error") reason = "error";
+      else if (this.prefetch.some((entry) => entry.failed))
+        reason = "prefetch failed; will retry when reached";
+      else if (
+        (this.prefetch.at(-1)?.index ?? this.index) + 1 >=
+          this.segments.length &&
+        this.prefetch.every((entry) => entry.buffer)
+      )
+        reason = "end of passage";
+      else if (seconds >= PREFETCH_SECONDS) reason = "buffer target reached";
+      else if (this.prefetch.length >= PREFETCH_SENTENCES)
+        reason = "sentence limit reached";
+      else if (this.requestBudget() < 46) reason = "memory limit reached";
+      else reason = "no preparation active";
+    }
+    return {
+      readyCount: ready.length,
+      readySeconds: seconds,
+      stage: this.stage,
+      reason,
+      sentences: this.segments
+        .slice(this.index, this.index + 5)
+        .map((segment, offset) => {
+          const index = this.index + offset;
+          const entry = this.prefetch.find((item) => item.index === index);
+          const buffer = index === this.index ? this.buffer : entry?.buffer;
+          return {
+            index,
+            text: segment.text,
+            status: buffer
+              ? index === this.index
+                ? this.state
+                : "ready"
+              : this.preparingIndex === index
+                ? this.stage
+                : "waiting",
+            duration: buffer?.duration,
+          };
+        }),
+      lastPreparationMs: this.lastPreparationMs,
+      underruns: this.underruns,
+      totalWaitMs: this.totalWaitMs,
+      gap: this.gap,
+    };
+  }
 
   constructor(
     private segments: readonly ReadingSegment[],
@@ -73,6 +156,7 @@ export class ReadingSession {
           ? this.index
           : null,
       error: this.error,
+      diagnostics: this.getDiagnostics(),
     };
   }
   private publish(state: PlaybackState, error?: string) {
@@ -86,6 +170,12 @@ export class ReadingSession {
       this.transport.cancel(this.requestId, this.leaseId);
     this.requestId = undefined;
     this.prefetch = [];
+    this.stage = "idle";
+    this.preparingIndex = undefined;
+    if (this.gap && this.gap.durationMs === undefined) {
+      this.gap.durationMs = performance.now() - this.gap.started;
+      this.totalWaitMs += this.gap.durationMs;
+    }
     this.audio.stop();
     if (release && this.leaseId) {
       this.transport.release?.(this.leaseId);
@@ -152,9 +242,17 @@ export class ReadingSession {
     );
   }
   private async prepare(index: number, generation: number, maxBytes: number) {
+    const started = performance.now();
+    this.preparingIndex = index;
+    this.stage = "waiting for previous decode";
+    this.notify();
     // An obsolete native decode cannot be aborted. Wait before allocating another response.
     await this.audio.waitForDecode?.();
     if (generation !== this.generation) return;
+    this.stage = "waiting for server";
+    if (this.gap?.durationMs === undefined && this.gap?.stage === "idle")
+      this.gap.stage = this.stage;
+    this.notify();
     const bytes = await this.request(index, generation, maxBytes);
     if (!bytes || generation !== this.generation) return;
     const rawBytes = bytes.byteLength;
@@ -164,6 +262,8 @@ export class ReadingSession {
         MAX_BUFFER_BYTES
     )
       throw new Error("The generated audio exceeds the playback memory limit.");
+    this.stage = "decoding";
+    this.notify();
     const buffer = await this.audio.decode(bytes);
     if (generation !== this.generation) return;
     if (
@@ -171,6 +271,10 @@ export class ReadingSession {
       MAX_BUFFER_BYTES
     )
       throw new Error("The generated audio exceeds the playback memory limit.");
+    this.lastPreparationMs = performance.now() - started;
+    this.stage = "idle";
+    this.preparingIndex = undefined;
+    this.notify();
     return buffer;
   }
   private async load(generation: number) {
@@ -195,6 +299,10 @@ export class ReadingSession {
   }
   private start(generation: number) {
     try {
+      if (this.gap && this.gap.durationMs === undefined) {
+        this.gap.durationMs = performance.now() - this.gap.started;
+        this.totalWaitMs += this.gap.durationMs;
+      }
       this.audio.play(this.buffer!, this.offset, () => {
         if (generation !== this.generation || this.state !== "playing") return;
         this.buffer = undefined;
@@ -210,6 +318,12 @@ export class ReadingSession {
             this.buffer = next.buffer;
             this.start(generation);
           } else {
+            this.underruns++;
+            this.gap = {
+              index: this.index,
+              started: performance.now(),
+              stage: this.stage,
+            };
             this.publish("preparing");
             void this.load(generation);
           }
@@ -244,11 +358,21 @@ export class ReadingSession {
           return;
         const entry: Prefetch = { index, ready: Promise.resolve() };
         this.prefetch.push(entry);
+        this.notify();
         entry.ready = this.prepare(index, generation, maxBytes).then(
           (buffer) => {
-            if (generation === this.generation) entry.buffer = buffer;
+            if (generation === this.generation) {
+              entry.buffer = buffer;
+              this.notify();
+            }
           },
           () => {
+            if (generation === this.generation) {
+              entry.failed = true;
+              this.stage = "idle";
+              this.preparingIndex = undefined;
+              this.notify();
+            }
             // Prefetch is best-effort; foreground retry supplies any final error.
           },
         );
@@ -283,6 +407,10 @@ export class ReadingSession {
     this.buffer = undefined;
     this.offset = 0;
     this.index = 0;
+    this.underruns = 0;
+    this.totalWaitMs = 0;
+    this.gap = undefined;
+    this.lastPreparationMs = undefined;
     this.publish("ready");
   }
   seek(index: number) {

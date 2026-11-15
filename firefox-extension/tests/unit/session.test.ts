@@ -97,6 +97,70 @@ function fixture(prefetch = false, text = ["First.", "Second."]) {
 }
 
 describe("reading session", () => {
+  it("reports queued audio and records only unplanned sentence gaps", async () => {
+    const { session, ready, requests, callbacks } = fixture(true, [
+      "First.",
+      "Second.",
+      "Third.",
+    ]);
+    await ready();
+    expect(session.snapshot.diagnostics).toMatchObject({
+      stage: "waiting for server",
+      readyCount: 0,
+      underruns: 0,
+    });
+    requests[1]!.result.resolve(wav());
+    await settle();
+    expect(session.snapshot.diagnostics).toMatchObject({
+      readyCount: 1,
+      readySeconds: 2,
+      stage: "waiting for server",
+    });
+    callbacks[0]!();
+    expect(session.snapshot.diagnostics?.underruns).toBe(0);
+    callbacks[1]!();
+    expect(session.snapshot.diagnostics).toMatchObject({
+      underruns: 1,
+      gap: { index: 2, stage: "waiting for server" },
+    });
+    requests[2]!.result.resolve(wav());
+    await settle();
+    expect(
+      session.snapshot.diagnostics?.gap?.durationMs,
+    ).toBeGreaterThanOrEqual(0);
+    session.stop();
+    expect(session.snapshot.diagnostics).toMatchObject({
+      underruns: 0,
+      totalWaitMs: 0,
+    });
+  });
+  it("records an interrupted gap but does not count startup or seek", async () => {
+    const { session, ready, callbacks } = fixture();
+    await ready();
+    callbacks[0]!();
+    expect(session.snapshot.diagnostics?.underruns).toBe(1);
+    session.pause();
+    expect(session.snapshot.diagnostics).toMatchObject({
+      underruns: 1,
+      reason: "paused",
+    });
+    expect(
+      session.snapshot.diagnostics?.gap?.durationMs,
+    ).toBeGreaterThanOrEqual(0);
+    expect(session.snapshot.diagnostics?.totalWaitMs).toBeGreaterThanOrEqual(0);
+    session.seek(0);
+    expect(session.snapshot.diagnostics?.underruns).toBe(0);
+  });
+  it("explains a failed prefetch will retry when reached", async () => {
+    const { session, ready, requests } = fixture(true);
+    await ready();
+    requests[1]!.result.reject(new Error("offline"));
+    await settle();
+    expect(session.snapshot.diagnostics).toMatchObject({
+      stage: "idle",
+      reason: "prefetch failed; will retry when reached",
+    });
+  });
   it("creates request IDs on HTTP pages without randomUUID", () => {
     const randomUUID = vi.spyOn(crypto, "randomUUID").mockImplementation(() => {
       throw new Error("Unavailable on HTTP");
@@ -415,9 +479,9 @@ describe("prefetch and ownership", () => {
     const before = snapshots.length;
     callbacks[0]!();
     expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
-    expect(snapshots.slice(before).map(({ state }) => state)).toEqual([
-      "playing",
-    ]);
+    expect(
+      snapshots.slice(before).every(({ state }) => state === "playing"),
+    ).toBe(true);
     await settle();
     expect(requests).toHaveLength(10);
     expect(requests[9]!.text).toBe(text[9]);

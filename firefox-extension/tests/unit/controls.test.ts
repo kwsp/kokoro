@@ -1,7 +1,18 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createControls } from "../../src/controls";
 import { SpeakingHighlight } from "../../src/highlighting";
 import type { Snapshot } from "../../src/session";
+
+beforeEach(() => {
+  vi.stubGlobal("browser", {
+    storage: {
+      local: {
+        get: vi.fn().mockResolvedValue({}),
+        set: vi.fn().mockResolvedValue(undefined),
+      },
+    },
+  });
+});
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -10,6 +21,119 @@ afterEach(() => {
 });
 
 describe("reader controls", () => {
+  it("does not emit playback attribute mutations for unchanged snapshots", () => {
+    const noop = () => {};
+    const controls = createControls({
+      play: noop,
+      pause: noop,
+      stop: noop,
+      clickMode: noop,
+      settings: noop,
+      close: noop,
+    });
+    const snapshot: Snapshot = {
+      state: "playing",
+      index: 0,
+      total: 2,
+      offset: 0,
+      highlightedIndex: 0,
+    };
+    controls.update(snapshot);
+    const observer = new MutationObserver(() => {});
+    observer.observe(controls.host, { attributes: true });
+    controls.update(snapshot);
+    expect(observer.takeRecords()).toHaveLength(0);
+    observer.disconnect();
+    controls.close();
+  });
+  it("persists the advanced panel preference and keeps it above controls", async () => {
+    const noop = () => {};
+    const controls = createControls({
+      play: noop,
+      pause: noop,
+      stop: noop,
+      clickMode: noop,
+      settings: noop,
+      close: noop,
+    });
+    const root = controls.host.shadowRoot!;
+    const panel = root.getElementById("advanced-panel")!;
+    const toggle = root.getElementById("advanced-toggle") as HTMLButtonElement;
+    expect(panel.hidden).toBe(true);
+    toggle.click();
+    expect(panel.hidden).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(browser.storage.local.set).toHaveBeenCalledWith({
+      advancedExpanded: true,
+    });
+    expect(panel.nextElementSibling?.tagName).toBe("NAV");
+    toggle.click();
+    expect(panel.hidden).toBe(true);
+    controls.close();
+  });
+  it("restores the saved expansion preference after reopening", async () => {
+    let expanded = false;
+    vi.stubGlobal("browser", {
+      storage: {
+        local: {
+          get: vi.fn(async () => ({ advancedExpanded: expanded })),
+          set: vi.fn(async (value: { advancedExpanded: boolean }) => {
+            expanded = value.advancedExpanded;
+          }),
+        },
+      },
+    });
+    const noop = () => {};
+    const actions = {
+      play: noop,
+      pause: noop,
+      stop: noop,
+      clickMode: noop,
+      settings: noop,
+      close: noop,
+    };
+    const first = createControls(actions);
+    (
+      first.host.shadowRoot!.getElementById(
+        "advanced-toggle",
+      ) as HTMLButtonElement
+    ).click();
+    first.close();
+    const second = createControls(actions);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(
+      second.host.shadowRoot!.getElementById("advanced-panel")!.hidden,
+    ).toBe(false);
+    second.close();
+  });
+  it("clears the elapsed timer on collapse and close", () => {
+    vi.useFakeTimers();
+    try {
+      const noop = () => {};
+      const controls = createControls({
+        play: noop,
+        pause: noop,
+        stop: noop,
+        clickMode: noop,
+        settings: noop,
+        close: noop,
+      });
+      const toggle = controls.host.shadowRoot!.getElementById(
+        "advanced-toggle",
+      ) as HTMLButtonElement;
+      const clear = vi.spyOn(globalThis, "clearInterval");
+      toggle.click();
+      toggle.click();
+      expect(clear).toHaveBeenCalledTimes(1);
+      toggle.click();
+      controls.close();
+      expect(clear).toHaveBeenCalledTimes(2);
+      clear.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("explains click mode and failed targeting, then restores the prior status when disabled", () => {
     const noop = () => {};
     const controls = createControls({
