@@ -1,4 +1,5 @@
 import { WebAudioPlayer } from "./audio";
+import { extractPage } from "./extraction";
 import { createControls, HOST_ID } from "./controls";
 import { SpeakingHighlight } from "./highlighting";
 import {
@@ -12,6 +13,7 @@ if (!document.getElementById(HOST_ID)) mount();
 
 function mount() {
   let segments: ReadingSegment[] = [];
+  let extractionError: string | undefined;
   const highlight = new SpeakingHighlight();
   const session = new ReadingSession(
     segments,
@@ -36,17 +38,25 @@ function mount() {
       },
     },
     (snapshot) => {
-      controls.update(snapshot);
       highlight.show(
         snapshot.highlightedIndex === null
           ? undefined
           : segments[snapshot.highlightedIndex],
         snapshot.state === "paused",
       );
+      controls.update(
+        extractionError && !snapshot.total
+          ? { ...snapshot, state: "error", error: extractionError }
+          : snapshot,
+        highlight.usesFallback ? "Block highlight" : undefined,
+      );
     },
   );
   const controls = createControls({
-    play: () => session.play(),
+    play: () => {
+      if (!segments.length) activate();
+      if (segments.length) session.play();
+    },
     pause: () => session.pause(),
     stop: () => session.stop(),
     settings: () => {
@@ -57,16 +67,24 @@ function mount() {
 
   function activate(selectionOnly = false) {
     const ranges = captureSelection(window.getSelection());
-    if (ranges.length) {
-      segments = segmentsFromRanges(ranges);
-      session.replaceSegments(segments);
-    } else if (!segments.length || selectionOnly) {
-      const target = selectionOnly
-        ? null
-        : document.querySelector("article p, main p");
-      const range = document.createRange();
-      if (target) range.selectNodeContents(target);
-      segments = target ? segmentsFromRanges([range]) : [];
+    if (ranges.length || !segments.length || selectionOnly) {
+      extractionError = undefined;
+      try {
+        segments = ranges.length
+          ? segmentsFromRanges(ranges)
+          : selectionOnly
+            ? []
+            : extractPage(document).segments;
+        if (!segments.length)
+          extractionError =
+            "No readable text selected. Select a passage, then activate Kokoro again.";
+      } catch (error) {
+        segments = [];
+        extractionError =
+          error instanceof Error
+            ? error.message
+            : "Could not read this page. Select a passage, then activate Kokoro again.";
+      }
       session.replaceSegments(segments);
     }
     controls.focus();

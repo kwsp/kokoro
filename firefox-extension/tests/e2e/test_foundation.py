@@ -14,11 +14,11 @@ def test_installed_extension_audio_and_highlight(configured, server, tmp_path):
     started = time.monotonic()
     reader.click("play")
     reader.wait_state("playing")
-    assert reader.highlight() == TEXT
+    assert reader.highlight() == "Fixture article"
     assert server.requests == [
         {
             "model": "kokoro",
-            "input": TEXT,
+            "input": "Fixture article",
             "voice": "af_heart",
             "speed": 1,
             "response_format": "wav",
@@ -26,8 +26,17 @@ def test_installed_extension_audio_and_highlight(configured, server, tmp_path):
     ]
     assert TOKEN not in driver.page_source
     driver.save_screenshot(str(tmp_path / "speaking.png"))
+    reader.wait.until(lambda _: reader.highlight() == TEXT)
+    assert server.requests[1]["input"] == TEXT
+    driver.save_screenshot(str(tmp_path / "paragraph-speaking.png"))
+    reader.wait.until(lambda _: reader.highlight() == "Another paragraph.")
     reader.wait_state("finished")
-    assert time.monotonic() - started >= 1.8
+    assert [request["input"] for request in server.requests] == [
+        "Fixture article",
+        TEXT,
+        "Another paragraph.",
+    ]
+    assert time.monotonic() - started >= 5.4
     assert reader.highlight() == ""
     print(
         f'Firefox {driver.capabilities["browserVersion"]}: toolbar activation, authenticated WAV, audio completion, and CSS highlight passed'

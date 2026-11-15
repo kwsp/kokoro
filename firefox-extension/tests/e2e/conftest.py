@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import zipfile
 from contextlib import suppress
 
@@ -28,7 +29,7 @@ def server(tmp_path):
 
 
 @pytest.fixture
-def firefox(tmp_path):
+def firefox(tmp_path, request):
     options = Options()
     options.binary_location = os.environ.get(
         "FIREFOX_BINARY", "/Applications/Firefox.app/Contents/MacOS/firefox"
@@ -37,6 +38,25 @@ def firefox(tmp_path):
         options.add_argument("-headless")
     options.set_preference("network.dns.localDomains", "reader.test")
     options.set_preference("network.proxy.type", 0)
+    extension_dir = EXTENSION / "dist"
+    if getattr(request, "param", {}).get("highlight_fallback"):
+        extension_dir = tmp_path / "fallback-dist"
+        subprocess.run(
+            ["node", "scripts/build.mjs"],
+            cwd=EXTENSION,
+            env={
+                **os.environ,
+                "KOKORO_EXTENSION_OUT_DIR": str(extension_dir),
+                "KOKORO_TEST_HIGHLIGHT_FALLBACK": "1",
+            },
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    bundle = tmp_path / "reader.xpi"
+    with zipfile.ZipFile(bundle, "w") as archive:
+        for file in extension_dir.iterdir():
+            archive.write(file, file.name)
     home = tmp_path / "firefox-home"
     home.mkdir()
     service = Service(
@@ -46,13 +66,9 @@ def firefox(tmp_path):
         log_output=str(tmp_path / "geckodriver.log"),
     )
     driver = webdriver.Firefox(options=options, service=service)
-    driver.set_window_size(1100, 850)
-    bundle = tmp_path / "reader.xpi"
-    with zipfile.ZipFile(bundle, "w") as archive:
-        for file in (EXTENSION / "dist").iterdir():
-            archive.write(file, file.name)
-    driver.install_web_extension(str(bundle), permanent=False)
     try:
+        driver.set_window_size(1100, 850)
+        driver.install_web_extension(str(bundle), permanent=False)
         yield driver
     finally:
         with suppress(WebDriverException):

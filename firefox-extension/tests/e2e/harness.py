@@ -77,7 +77,13 @@ class FixtureServer:
                     pass  # Cancellation is part of the behavior under test.
 
             def do_GET(self):
-                if self.path in {"/article", "/selection"}:
+                if self.path in {
+                    "/article",
+                    "/selection",
+                    "/readability",
+                    "/ambiguous",
+                    "/empty",
+                }:
                     fixture = EXTENSION / "tests" / "fixtures" / f"{self.path[1:]}.html"
                     self.send(200, fixture.read_bytes(), "text/html")
                 elif self.path == "/v1/voices":

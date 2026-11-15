@@ -91,3 +91,30 @@ This is test cleanup only and does not change the extension's permissions or act
 Remaining scope for later steps: complete article extraction and fallback highlighting, click-to-read, cross-tab ownership, bounded prefetch/retries, mutation/settings lifecycle, and the real-backend listening check.
 Requests remain sequential in this step, and the no-selection fallback still reads only the first article/main paragraph.
 The normal page selection can visually overlay its own blue selection color on the sentence highlight; article/highlight polish can improve that presentation without losing the original selection mapping.
+
+### Step 3 report
+
+Implemented visible article/main extraction with ordered source blocks, preserving article headings, lists, quotations, repeated text, and nested block order.
+Ambiguous similarly sized article cards offer selection reading instead of silently selecting the first card.
+For pages without semantic roots, Mozilla Readability parses a visibility-filtered clone and its retained blocks must have a unique ordered mapping to the live DOM.
+The mapping compares earliest and latest possible matches, so surrounding context can disambiguate repeated text without guessing.
+The original page nodes and markup are preserved.
+Closed details content, hidden elements, controls, editable regions, navigation, and unrelated sidebars are excluded, and shadow-root selections are ignored.
+
+Speaking and paused highlights now include distinct underline decorations while retaining the user's native selection.
+A feature-detected outline fallback marks the active block and restores its previous inline outline values and priorities without overwriting subsequent page-owned changes.
+Fallback status explicitly says “Block highlight”.
+The build includes unchanged Readability and license files, with a narrow web-ext lint exclusion for only the upstream vendor's detached-clone HTML assignments.
+Application bundles remain fully linted.
+
+Local validation passed: TypeScript, ESLint, Prettier, 84 unit tests, build, scoped web-ext validation with zero errors and warnings, Black, and Ruff.
+Firefox 157.0.1 validation passed all nine scenarios: eight production-bundle cases in the complete run and the focused outline-fallback case in 3.17 seconds.
+The cases cover full article ordering, Readability mapping to unchanged live nodes, ambiguous/empty pages, all previous selection/playback behavior, and native selection preservation.
+The fallback case uses a separate temporary build that defines `Highlight` as unavailable, because Firefox 157 no longer disables the API through the earlier preference.
+It uses the same manifest, permissions, real activation, and fallback implementation, with no page command hook.
+The browser checks confirmed the Readability global remains isolated from page scripts and that speaking, paused, and restored outline styles are correct.
+The primary agent reviewed article highlights, the underline over native selection, and the coarse fallback outline screenshots.
+Unit coverage caught CSSOM color serialization affecting outline restoration, which now compares the browser's serialized applied values.
+
+Remaining scope for later steps: click-to-read, cross-tab ownership, bounded prefetch/retries, mutation/settings lifecycle, and the real-backend listening check.
+Readability mappings intentionally reject pages whose extracted blocks cannot be matched confidently; manual selection remains the fallback.

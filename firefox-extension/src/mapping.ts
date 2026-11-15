@@ -23,13 +23,31 @@ export interface ReadingSegment {
 }
 
 export const MAX_SEGMENT_CODEPOINTS = 1000;
-const BLOCKS = "p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,div,section,article,main";
+const BLOCKS =
+  "p,li,h1,h2,h3,h4,h5,h6,blockquote,pre,dd,dt,figcaption,details,summary,div,section,article,main";
 const EXCLUDED =
-  'script,style,noscript,template,nav,header,footer,button,input,textarea,select,[hidden],[aria-hidden="true"],[contenteditable]:not([contenteditable="false"]),#kokoro-reader-controls';
+  'script,style,noscript,template,nav,footer,aside,button,input,textarea,select,[role="navigation"],[role="button"],[role="menu"],[role="toolbar"],[hidden],[aria-hidden="true"],[contenteditable]:not([contenteditable="false"]),#kokoro-reader-controls';
 
-export function readableText(node: Text): boolean {
-  const parent = node.parentElement;
-  if (!parent || parent.closest(EXCLUDED)) return false;
+function hiddenByDetails(node: Node): boolean {
+  for (
+    let ancestor = node.parentElement;
+    ancestor;
+    ancestor = ancestor.parentElement
+  ) {
+    if (
+      ancestor.matches("details:not([open])") &&
+      !ancestor.querySelector(":scope > summary")?.contains(node)
+    )
+      return true;
+  }
+  return false;
+}
+
+export function readableElement(parent: Element): boolean {
+  if (parent.closest(EXCLUDED)) return false;
+  if (hiddenByDetails(parent)) return false;
+  const header = parent.closest("header");
+  if (header && !header.closest("article,main")) return false;
   for (
     let element: Element | null = parent;
     element;
@@ -39,14 +57,21 @@ export function readableText(node: Text): boolean {
     if (
       style?.display === "none" ||
       style?.visibility === "hidden" ||
-      style?.visibility === "collapse"
+      style?.visibility === "collapse" ||
+      style?.contentVisibility === "hidden" ||
+      style?.opacity === "0"
     )
       return false;
   }
   return true;
 }
 
-function blockFor(node: Text): Element {
+export function readableText(node: Text): boolean {
+  if (hiddenByDetails(node)) return false;
+  return Boolean(node.parentElement && readableElement(node.parentElement));
+}
+
+export function blockFor(node: Text): Element {
   return node.parentElement!.closest(BLOCKS) ?? node.parentElement!;
 }
 
@@ -174,6 +199,7 @@ export function segmentsFromRanges(ranges: readonly Range[]): ReadingSegment[] {
   for (const range of ranges) {
     const root = range.commonAncestorContainer;
     const owner = root.ownerDocument ?? (root as Document);
+    if (root.getRootNode() !== owner) continue;
     const walker = owner.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let node: Node | null =
       root.nodeType === Node.TEXT_NODE ? root : walker.nextNode();

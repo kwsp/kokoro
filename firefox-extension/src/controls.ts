@@ -53,7 +53,7 @@ export function createControls(actions: {
   panel.append(nav, status);
   shadow.append(panel);
   document.documentElement.append(host);
-  function update(next: Snapshot) {
+  function update(next: Snapshot, note?: string) {
     snapshot = next;
     host.dataset.state = next.state;
     host.dataset.sentence = String(next.index + 1);
@@ -71,6 +71,7 @@ export function createControls(actions: {
       (next.total
         ? `Sentence ${next.index + 1} of ${next.total} · ${label}`
         : "Select a passage, then activate Kokoro again.");
+    if (note) status.textContent += ` · ${note}`;
   }
   update(snapshot);
   return {

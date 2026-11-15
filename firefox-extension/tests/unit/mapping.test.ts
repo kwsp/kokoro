@@ -145,6 +145,15 @@ describe("selection source mapping", () => {
         expect(sourceText(segment)).toBe(segment.text);
     },
   );
+  it("ignores selections inside a shadow root", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML = "<p>Extension or shadow UI.</p>";
+    expect(segmentsFromRanges([select(shadow.querySelector("p")!)])).toEqual(
+      [],
+    );
+  });
   it("returns no segments for empty or excluded selections", () => {
     expect(
       read('<p>   </p><input value="secret"><textarea>secret</textarea>'),

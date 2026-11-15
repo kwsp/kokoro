@@ -10,7 +10,7 @@
     "format": "prettier --write src tests/unit scripts *.json *.mjs",
     "format:check": "prettier --check src tests/unit scripts *.json *.mjs",
     "test": "vitest run",
-    "lint:extension": "web-ext lint --source-dir dist --warnings-as-errors",
+    "lint:extension": "web-ext lint --source-dir dist --warnings-as-errors --ignore-files Readability.js",
     "package": "npm run build && web-ext build --source-dir dist --artifacts-dir artifacts --overwrite-dest",
     "dev": "npm run build && web-ext run --source-dir dist"
   },
@@ -25,5 +25,8 @@
     "typescript-eslint": "^8.30.0",
     "vitest": "^5.1.0",
     "web-ext": "^10.8.0"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0"
   }
 }

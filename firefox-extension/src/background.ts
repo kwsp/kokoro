@@ -9,6 +9,10 @@ async function activate(tab: browser.tabs.Tab, selectionOnly = false) {
   if (tab.id === undefined) return;
   try {
     await browser.tabs.executeScript(tab.id, {
+      file: "Readability.js",
+      frameId: 0,
+    });
+    await browser.tabs.executeScript(tab.id, {
       file: "content.js",
       frameId: 0,
     });
