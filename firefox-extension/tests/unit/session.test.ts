@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AudioAdapter } from "../../src/audio";
+import { MAX_BUFFER_BYTES, type AudioAdapter } from "../../src/audio";
 import type { ReadingSegment } from "../../src/mapping";
 import {
   ReadingSession,
@@ -18,14 +18,34 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 const settle = async () => {
-  for (let n = 0; n < 8; n++) await Promise.resolve();
+  for (let n = 0; n < 20; n++) await Promise.resolve();
 };
 const buffer = {
   duration: 2,
   length: 48000,
   numberOfChannels: 1,
 } as AudioBuffer;
-function fixture(prefetch = false) {
+function wav(samples = 1) {
+  const bytes = new ArrayBuffer(44 + samples * 2);
+  const view = new DataView(bytes);
+  const tag = (offset: number, value: string) => {
+    for (let n = 0; n < value.length; n++)
+      view.setUint8(offset + n, value.charCodeAt(n));
+  };
+  tag(0, "RIFF");
+  view.setUint32(4, bytes.byteLength - 8, true);
+  tag(8, "WAVE");
+  tag(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 24000, true);
+  view.setUint16(34, 16, true);
+  tag(36, "data");
+  view.setUint32(40, samples * 2, true);
+  return bytes;
+}
+function fixture(prefetch = false, text = ["First.", "Second."]) {
   const requests: {
     text: string;
     id: string;
@@ -53,7 +73,7 @@ function fixture(prefetch = false) {
     cancel: vi.fn(),
   } satisfies SpeechTransport;
   const snapshots: Snapshot[] = [];
-  const segments = ["First.", "Second."].map((text) => ({
+  const segments = text.map((text) => ({
     text,
     ranges: [],
     block: document.body,
@@ -70,7 +90,7 @@ function fixture(prefetch = false) {
   async function ready() {
     session.play();
     await settle();
-    requests.at(-1)!.result.resolve(new ArrayBuffer(44));
+    requests.at(-1)!.result.resolve(wav());
     await settle();
   }
   return { session, audio, transport, requests, callbacks, snapshots, ready };
@@ -106,7 +126,7 @@ describe("reading session", () => {
       highlightedIndex: null,
     });
     expect(requests.map((r) => r.text)).toEqual(["First.", "Second."]);
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     callbacks[1]!();
     expect(session.snapshot).toMatchObject({
@@ -138,7 +158,7 @@ describe("reading session", () => {
       requests[0]!.id,
       expect.any(String),
     );
-    requests[0]!.result.resolve(new ArrayBuffer(44));
+    requests[0]!.result.resolve(wav());
     await settle();
     expect(audio.decode).not.toHaveBeenCalled();
     expect(session.snapshot.state).toBe("paused");
@@ -151,7 +171,7 @@ describe("reading session", () => {
     session.seek(1);
     await settle();
     session.stop();
-    requests[0]!.result.resolve(new ArrayBuffer(44));
+    requests[0]!.result.resolve(wav());
     await settle();
     expect(transport.cancel).toHaveBeenCalledWith(
       requests[0]!.id,
@@ -170,7 +190,7 @@ describe("reading session", () => {
     audio.decode.mockReturnValueOnce(decoding.promise);
     session.play();
     await settle();
-    requests[0]!.result.resolve(new ArrayBuffer(44));
+    requests[0]!.result.resolve(wav());
     await settle();
     expect(audio.decode).toHaveBeenCalledOnce();
     session.stop();
@@ -185,11 +205,11 @@ describe("reading session", () => {
     audio.decode.mockReturnValueOnce(decoding.promise);
     session.play();
     await settle();
-    requests[0]!.result.resolve(new ArrayBuffer(44));
+    requests[0]!.result.resolve(wav());
     await settle();
     session.seek(1);
     await settle();
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     decoding.resolve(buffer);
     await settle();
@@ -214,7 +234,7 @@ describe("reading session", () => {
     });
     session.play();
     await settle();
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     expect(requests.map((r) => r.text)).toEqual(["Second.", "Second."]);
     expect(audio.play).toHaveBeenCalledOnce();
@@ -234,7 +254,7 @@ describe("reading session", () => {
         offset: 0,
         highlightedIndex: null,
       });
-      requests[1]!.result.resolve(new ArrayBuffer(44));
+      requests[1]!.result.resolve(wav());
       await settle();
       expect(audio.play.mock.calls.at(-1)?.[1]).toBe(0);
       obsoleteEnd();
@@ -281,7 +301,7 @@ describe("reading session", () => {
     await ready();
     callbacks[0]!();
     await settle();
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     callbacks[1]!();
     session.play();
@@ -309,19 +329,20 @@ describe("reading session", () => {
 });
 
 describe("prefetch and ownership", () => {
-  it("prefetches one sentence without decoding or highlighting it early", async () => {
+  it("decodes future audio early but only plays and highlights it at its turn", async () => {
     const { session, ready, requests, audio, callbacks } = fixture(true);
     await ready();
     expect(requests.map((request) => request.text)).toEqual([
       "First.",
       "Second.",
     ]);
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
-    expect(audio.decode).toHaveBeenCalledOnce();
+    expect(audio.decode).toHaveBeenCalledTimes(2);
+    expect(audio.play).toHaveBeenCalledOnce();
     expect(session.snapshot.highlightedIndex).toBe(0);
     callbacks[0]!();
-    await settle();
+    expect(session.snapshot.state).toBe("playing");
     expect(audio.decode).toHaveBeenCalledTimes(2);
     expect(session.snapshot.highlightedIndex).toBe(1);
     expect(requests).toHaveLength(2);
@@ -330,7 +351,7 @@ describe("prefetch and ownership", () => {
     const { session, ready, requests, audio } = fixture(true);
     await ready();
     session.stop();
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     expect(audio.decode).toHaveBeenCalledOnce();
     expect(session.snapshot.state).toBe("ready");
@@ -355,7 +376,7 @@ describe("prefetch and ownership", () => {
     expect(transport.fetch.mock.calls[2]![3]).toBeGreaterThan(
       transport.fetch.mock.calls[1]![3],
     );
-    requests[2]!.result.resolve(new ArrayBuffer(44));
+    requests[2]!.result.resolve(wav());
     await settle();
     expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
   });
@@ -363,14 +384,335 @@ describe("prefetch and ownership", () => {
     const { ready, audio, transport } = fixture(true);
     audio.decode.mockResolvedValueOnce({ ...buffer, length: 6 * 1024 * 1024 });
     await ready();
-    expect(transport.fetch.mock.calls[1]?.[3]).toBe(4 * 1024 * 1024);
+    expect(transport.fetch.mock.calls[1]?.[3]).toBe(
+      Math.floor((8 * 1024 * 1024) / 3),
+    );
   });
-  it("also bounds prefetched WAV to what can be decoded after the current audio ends", async () => {
+  it("reserves raw and decoded space alongside the currently playing audio", async () => {
     const { ready, transport } = fixture(true);
     await ready();
     expect(transport.fetch.mock.calls[1]?.[3]).toBe(
-      Math.floor((32 * 1024 * 1024) / 3),
+      Math.floor((MAX_BUFFER_BYTES - buffer.length * 4) / 3),
     );
+  });
+  it("fills eight short future sentences serially, then refills as playback advances", async () => {
+    const text = Array.from({ length: 12 }, (_, index) => `Sentence ${index}.`);
+    const { session, ready, requests, audio, callbacks, snapshots } = fixture(
+      true,
+      text,
+    );
+    audio.decode.mockResolvedValue({ ...buffer, duration: 0.3 });
+    await ready();
+    for (let index = 1; index <= 8; index++) {
+      expect(requests).toHaveLength(index + 1);
+      requests[index]!.result.resolve(wav());
+      await settle();
+    }
+    expect(requests).toHaveLength(9);
+    expect(audio.decode).toHaveBeenCalledTimes(9);
+    expect(audio.play).toHaveBeenCalledOnce();
+    expect(session.snapshot.highlightedIndex).toBe(0);
+    const before = snapshots.length;
+    callbacks[0]!();
+    expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
+    expect(snapshots.slice(before).map(({ state }) => state)).toEqual([
+      "playing",
+    ]);
+    await settle();
+    expect(requests).toHaveLength(10);
+    expect(requests[9]!.text).toBe(text[9]);
+  });
+  it("stops filling after fifteen seconds of future audio, even with space for more entries", async () => {
+    const { ready, requests, audio, callbacks } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+      "Four.",
+      "Five.",
+    ]);
+    audio.decode.mockResolvedValue({ ...buffer, duration: 8 });
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    requests[2]!.result.resolve(wav());
+    await settle();
+    expect(requests).toHaveLength(3);
+    callbacks[0]!();
+    await settle();
+    expect(requests).toHaveLength(4);
+    expect(requests[3]!.text).toBe("Four.");
+  });
+  it("reports playback failures when advancing to an already decoded sentence", async () => {
+    const { session, ready, requests, audio, callbacks, transport } =
+      fixture(true);
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    audio.play.mockImplementationOnce(() => {
+      throw new Error("Audio unavailable.");
+    });
+    callbacks[0]!();
+    expect(session.snapshot).toMatchObject({
+      state: "error",
+      index: 1,
+      error: "Audio unavailable.",
+      highlightedIndex: null,
+    });
+    expect(transport.release).toHaveBeenCalledOnce();
+  });
+  it("awaits an in-flight future sentence without starting a duplicate request", async () => {
+    const { session, ready, requests, audio, callbacks } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+    ]);
+    await ready();
+    callbacks[0]!();
+    await settle();
+    expect(session.snapshot).toMatchObject({ state: "preparing", index: 1 });
+    expect(requests).toHaveLength(2);
+    requests[1]!.result.resolve(wav());
+    await settle();
+    expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(requests.map(({ text }) => text)).toEqual([
+      "One.",
+      "Two.",
+      "Three.",
+    ]);
+  });
+  it("awaits a future decode without duplicate fetching or early highlighting", async () => {
+    const { session, ready, requests, audio, callbacks } = fixture(true);
+    await ready();
+    const decoding = deferred<AudioBuffer>();
+    audio.decode.mockReturnValueOnce(decoding.promise);
+    requests[1]!.result.resolve(wav());
+    await settle();
+    expect(session.snapshot.highlightedIndex).toBe(0);
+    callbacks[0]!();
+    await settle();
+    expect(session.snapshot.state).toBe("preparing");
+    expect(requests).toHaveLength(2);
+    decoding.resolve(buffer);
+    await settle();
+    expect(session.snapshot).toMatchObject({
+      state: "playing",
+      highlightedIndex: 1,
+    });
+  });
+  it("preserves ready sentences before a failed prefetch and retries only when reached", async () => {
+    const { session, ready, requests, callbacks } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+      "Four.",
+    ]);
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    requests[2]!.result.reject(new Error("Busy."));
+    await settle();
+    expect(requests).toHaveLength(3);
+    callbacks[0]!();
+    await settle();
+    expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
+    expect(requests).toHaveLength(3);
+    callbacks[1]!();
+    await settle();
+    expect(requests.map(({ text }) => text)).toEqual([
+      "One.",
+      "Two.",
+      "Three.",
+      "Three.",
+    ]);
+    requests[3]!.result.reject(new Error("Still busy."));
+    await settle();
+    expect(session.snapshot).toMatchObject({
+      state: "error",
+      index: 2,
+      error: "Still busy.",
+    });
+    expect(requests).toHaveLength(4);
+  });
+  it("retries a failed prefetched decode when its sentence is reached", async () => {
+    const { session, ready, requests, audio, callbacks } = fixture(true);
+    await ready();
+    audio.decode.mockRejectedValueOnce(new Error("Decode failed."));
+    requests[1]!.result.resolve(wav());
+    await settle();
+    expect(session.snapshot.state).toBe("playing");
+    callbacks[0]!();
+    await settle();
+    expect(requests).toHaveLength(3);
+    requests[2]!.result.resolve(wav());
+    await settle();
+    expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
+  });
+  it("does not adopt a future decode or continue filling after Stop", async () => {
+    const { session, ready, requests, audio } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+    ]);
+    await ready();
+    const decoding = deferred<AudioBuffer>();
+    audio.decode.mockReturnValueOnce(decoding.promise);
+    requests[1]!.result.resolve(wav());
+    await settle();
+    session.stop();
+    decoding.resolve(buffer);
+    await settle();
+    expect(audio.play).toHaveBeenCalledOnce();
+    expect(requests).toHaveLength(2);
+    expect(session.snapshot.state).toBe("ready");
+  });
+  it("waits for obsolete prefetch decoding before refilling after Resume", async () => {
+    const { session, ready, requests, audio } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+    ]);
+    await ready();
+    const decoding = deferred<AudioBuffer>();
+    audio.decode.mockReturnValueOnce(decoding.promise);
+    Object.assign(audio, {
+      waitForDecode: () => decoding.promise.then(() => {}),
+    });
+    requests[1]!.result.resolve(wav());
+    await settle();
+    session.pause();
+    session.play();
+    await settle();
+    expect(session.snapshot.state).toBe("playing");
+    expect(requests).toHaveLength(2);
+    decoding.resolve(buffer);
+    await settle();
+    expect(requests.map(({ text }) => text)).toEqual(["One.", "Two.", "Two."]);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+  it("discards ready future audio and pending work on a seek", async () => {
+    const { session, ready, requests, audio, transport } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+      "Four.",
+    ]);
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    session.seek(3);
+    expect(transport.cancel).toHaveBeenCalledWith(
+      requests[2]!.id,
+      expect.any(String),
+    );
+    await settle();
+    requests[3]!.result.resolve(wav());
+    await settle();
+    requests[2]!.result.resolve(wav());
+    await settle();
+    expect(audio.decode).toHaveBeenCalledTimes(3);
+    expect(session.snapshot).toMatchObject({ state: "playing", index: 3 });
+    expect(requests.map(({ text }) => text)).toEqual([
+      "One.",
+      "Two.",
+      "Three.",
+      "Four.",
+    ]);
+  });
+  it("discards future buffers on Pause while retaining the current offset", async () => {
+    const { session, ready, requests, audio } = fixture(true);
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    session.pause();
+    session.play();
+    await settle();
+    expect(audio.play.mock.calls.at(-1)?.[1]).toBe(0.75);
+    expect(requests.map(({ text }) => text)).toEqual([
+      "First.",
+      "Second.",
+      "Second.",
+    ]);
+  });
+  it("discards all future buffers when settings change", async () => {
+    const { session, ready, requests, callbacks, audio } = fixture(true);
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    session.settingsChanged();
+    await settle();
+    requests[2]!.result.resolve(wav());
+    await settle();
+    expect(requests.map(({ text }) => text)).toEqual([
+      "First.",
+      "Second.",
+      "First.",
+      "Second.",
+    ]);
+    callbacks[0]!();
+    expect(session.snapshot.index).toBe(0);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
+  it("accounts for every retained buffer when reserving fetch and decode memory", async () => {
+    const { ready, requests, transport, audio } = fixture(true, [
+      "One.",
+      "Two.",
+      "Three.",
+    ]);
+    audio.decode.mockResolvedValueOnce({ ...buffer, length: 4 * 1024 * 1024 });
+    audio.decode.mockResolvedValueOnce({ ...buffer, length: 2 * 1024 * 1024 });
+    await ready();
+    expect(transport.fetch.mock.calls[1]![3]).toBe(
+      Math.floor((16 * 1024 * 1024) / 3),
+    );
+    requests[1]!.result.resolve(wav());
+    await settle();
+    expect(transport.fetch.mock.calls[2]![3]).toBe(
+      Math.floor((8 * 1024 * 1024) / 3),
+    );
+  });
+  it("defers prefetch when there is no room and proceeds after current audio is released", async () => {
+    const { ready, requests, audio, callbacks } = fixture(true);
+    audio.decode.mockResolvedValueOnce({
+      ...buffer,
+      length: (MAX_BUFFER_BYTES - 100) / 4,
+    });
+    await ready();
+    expect(requests).toHaveLength(1);
+    callbacks[0]!();
+    await settle();
+    expect(requests).toHaveLength(2);
+    expect(requests[1]!.text).toBe("Second.");
+  });
+  it("rejects a response exceeding the remaining budget before decoding it", async () => {
+    const { session, ready, requests, audio, callbacks } = fixture(true);
+    audio.decode.mockResolvedValueOnce({
+      ...buffer,
+      length: (MAX_BUFFER_BYTES - 1000) / 4,
+    });
+    await ready();
+    requests[1]!.result.resolve(wav(300));
+    await settle();
+    expect(audio.decode).toHaveBeenCalledOnce();
+    expect(session.snapshot.state).toBe("playing");
+    callbacks[0]!();
+    await settle();
+    requests[2]!.result.resolve(wav(300));
+    await settle();
+    expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
+  });
+  it("checks actual decoded memory against already retained audio", async () => {
+    const { session, ready, requests, audio, callbacks } = fixture(true);
+    audio.decode.mockResolvedValueOnce({ ...buffer, length: 4 * 1024 * 1024 });
+    audio.decode.mockResolvedValueOnce({ ...buffer, length: 5 * 1024 * 1024 });
+    await ready();
+    requests[1]!.result.resolve(wav());
+    await settle();
+    callbacks[0]!();
+    await settle();
+    expect(session.snapshot.state).toBe("preparing");
+    expect(requests).toHaveLength(3);
+    expect(audio.play).toHaveBeenCalledOnce();
   });
   it("claims ownership on Resume and ignores stale revocation", async () => {
     const { session, ready, transport } = fixture();
@@ -405,7 +747,7 @@ describe("prefetch and ownership", () => {
       "First.",
       "First.",
     ]);
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     session.pause();
     session.settingsChanged();
@@ -429,7 +771,7 @@ describe("prefetch and ownership", () => {
     await settle();
     expect(session.snapshot.state).toBe("preparing");
     expect(requests).toHaveLength(2);
-    requests[1]!.result.resolve(new ArrayBuffer(44));
+    requests[1]!.result.resolve(wav());
     await settle();
     expect(audio.decode).toHaveBeenCalledTimes(2);
     expect(audio.play.mock.calls.at(-1)?.[1]).toBe(0);

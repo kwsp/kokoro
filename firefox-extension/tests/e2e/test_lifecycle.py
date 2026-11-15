@@ -43,20 +43,22 @@ def test_prefetch_waits_for_audio_clock_and_background_tab_continues(
 ):
     driver = configured
     server.queue(body=tone(3))
-    server.queue(body=tone(3))
+    server.queue(body=tone(8))
     reader = open_reader(driver, server)
     reading_tab = driver.current_window_handle
     reader.click("play")
     reader.wait_state("playing")
-    reader.wait.until(lambda _: len(server.requests) == 2)
+    reader.wait.until(lambda _: len(server.requests) == 3)
     assert reader.highlight() == "Fixture article"
     assert [request["input"] for request in server.requests] == [
         "Fixture article",
         "Kokoro reads this first paragraph.",
+        "Another paragraph.",
     ]
     driver.switch_to.new_window("tab")
     driver.get("about:blank")
-    reader.wait.until(lambda _: len(server.requests) == 3)
+    backgrounded_at = time.monotonic()
+    reader.wait.until(lambda _: time.monotonic() - backgrounded_at >= 3.1)
     driver.switch_to.window(reading_tab)
     assert reader.highlight() == "Kokoro reads this first paragraph."
     reader.click("stop")

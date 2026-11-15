@@ -224,3 +224,27 @@ Validation passed: 179 unit tests, TypeScript, ESLint, Prettier, Black, Ruff, bu
 The final Firefox suite passed all 43 cases in 232.62 seconds, including real Kokoro CPU and MPS playback, with no skipped tests.
 All eleven headed click-mode, keyboard, and presentation cases passed in 52.68 seconds, and the primary agent reviewed the editable-sentence hover and mode-instruction screenshot.
 The development build and temporary-install ZIP were regenerated for the user to retry on their actual Notion and ChatGPT pages.
+
+### Follow-up: short-sentence preparation gaps
+
+The user confirmed the web-app click behavior and requested merging to main, then reported gaps with “Preparing next” between short Reddit sentences.
+The accepted web-app work was fast-forwarded into local main before starting this follow-up on a separate branch.
+The [performance plan and measurements](PERFORMANCE.md) record the reproduction, implementation steps, and device comparison.
+
+An installed-Firefox regression reproduced a 981 ms preparation stall before production code changed.
+The one-sentence prefetch left the server idle during earlier playback and deferred decoding until the sentence transition.
+A delegated implementation now fills a queue with serially fetched and decoded future sentences, targeting 15 seconds and stopping at eight future sentences or the existing 32 MiB logical memory cap.
+The first sentence starts immediately; later ready buffers start synchronously when the current clip ends, without premature highlighting or a Preparing transition.
+Failed prefetch remains best-effort and gets one foreground retry, and cancellation, pause, seek, settings, and ownership changes discard obsolete queued audio.
+Review also added protection for a playback-start exception during the new synchronous transition.
+
+All 195 unit tests passed, including 16 new regressions for buffering, bounds, lifecycle, and errors.
+The full installed-Firefox suite passed all 47 cases in 287.56 seconds, including real CPU and automatic Apple Silicon MPS playback, with no skips.
+The original deterministic reproduction now has no Preparing interval between sentences; its third Playing transition was 3 ms beyond the preceding clip's expected end, versus 984 ms before the fix.
+Both real-model eight-sentence runs also had no observed Preparing intervals between sentences, compared with baseline totals of 45 ms on CPU and 731 ms on MPS.
+These are local UI/playback timing observations, not measurements of audible silence inside Kokoro's waveform.
+The two focused buffering cases also passed in headed Firefox in 15.02 seconds after adding a cadence assertion, with a 4 ms transition delay in that repeat.
+
+TypeScript, ESLint, Prettier, Black, Ruff, production build, and scoped web-ext validation passed.
+The development build and temporary-install ZIP were regenerated, and the user was asked to reload the add-on and Reddit page for a listening check.
+The server retains one worker, one active synthesis job, and automatic MPS selection; extra HTTP workers would not improve this serial client by themselves.

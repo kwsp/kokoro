@@ -1,4 +1,4 @@
-import { MAX_BUFFER_BYTES, type AudioAdapter } from "./audio";
+import { MAX_BUFFER_BYTES, wavDecodedBytes, type AudioAdapter } from "./audio";
 import type { ReadingSegment } from "./mapping";
 import { MAX_AUDIO_BYTES } from "./transport";
 
@@ -28,9 +28,17 @@ export function createRequestId(): string {
     value.toString(16).padStart(8, "0"),
   ).join("");
 }
+const PREFETCH_SECONDS = 15;
+const PREFETCH_SENTENCES = 8;
+
 interface Prefetch {
   index: number;
-  result: Promise<{ bytes?: ArrayBuffer; error?: unknown }>;
+  ready: Promise<void>;
+  buffer?: AudioBuffer;
+}
+
+function bufferBytes(buffer?: AudioBuffer): number {
+  return buffer ? buffer.length * buffer.numberOfChannels * 4 : 0;
 }
 
 export class ReadingSession {
@@ -38,7 +46,8 @@ export class ReadingSession {
   private requestId?: string;
   private leaseId?: string;
   private buffer?: AudioBuffer;
-  private prefetch?: Prefetch;
+  private prefetch: Prefetch[] = [];
+  private fillingGeneration?: number;
   private state: PlaybackState = "ready";
   private index = 0;
   private offset = 0;
@@ -76,7 +85,7 @@ export class ReadingSession {
     if (this.requestId && this.leaseId)
       this.transport.cancel(this.requestId, this.leaseId);
     this.requestId = undefined;
-    this.prefetch = undefined;
+    this.prefetch = [];
     this.audio.stop();
     if (release && this.leaseId) {
       this.transport.release?.(this.leaseId);
@@ -129,39 +138,55 @@ export class ReadingSession {
       if (this.requestId === requestId) this.requestId = undefined;
     }
   }
+  private retainedBytes(): number {
+    return this.prefetch.reduce(
+      (total, entry) => total + bufferBytes(entry.buffer),
+      bufferBytes(this.buffer),
+    );
+  }
+  private requestBudget(): number {
+    // Stream assembly needs two raw copies; decoding needs raw PCM16 plus float32.
+    return Math.min(
+      MAX_AUDIO_BYTES,
+      Math.floor((MAX_BUFFER_BYTES - this.retainedBytes()) / 3),
+    );
+  }
+  private async prepare(index: number, generation: number, maxBytes: number) {
+    // An obsolete native decode cannot be aborted. Wait before allocating another response.
+    await this.audio.waitForDecode?.();
+    if (generation !== this.generation) return;
+    const bytes = await this.request(index, generation, maxBytes);
+    if (!bytes || generation !== this.generation) return;
+    const rawBytes = bytes.byteLength;
+    if (
+      rawBytes > maxBytes ||
+      this.retainedBytes() + rawBytes + wavDecodedBytes(bytes) >
+        MAX_BUFFER_BYTES
+    )
+      throw new Error("The generated audio exceeds the playback memory limit.");
+    const buffer = await this.audio.decode(bytes);
+    if (generation !== this.generation) return;
+    if (
+      this.retainedBytes() + rawBytes + bufferBytes(buffer) >
+      MAX_BUFFER_BYTES
+    )
+      throw new Error("The generated audio exceeds the playback memory limit.");
+    return buffer;
+  }
   private async load(generation: number) {
     try {
-      // An obsolete browser decode cannot be aborted. Let it finish before allocating another response.
-      await this.audio.waitForDecode?.();
-      if (generation !== this.generation) return;
-      const pending =
-        this.prefetch?.index === this.index ? this.prefetch : undefined;
-      this.prefetch = undefined;
-      let result = pending
-        ? await pending.result
-        : {
-            bytes: await this.request(
-              this.index,
-              generation,
-              Math.min(MAX_AUDIO_BYTES, Math.floor(MAX_BUFFER_BYTES / 3)),
-            ),
-          };
-      if (generation !== this.generation) return;
-      if (result.error && pending) {
-        // Prefetch is best-effort; the unread sentence gets its normal budget.
-        result = {
-          bytes: await this.request(
-            this.index,
-            generation,
-            Math.min(MAX_AUDIO_BYTES, Math.floor(MAX_BUFFER_BYTES / 3)),
-          ),
-        };
+      const pending = this.prefetch[0];
+      if (pending) {
+        await pending.ready;
         if (generation !== this.generation) return;
+        this.prefetch.shift();
+        this.buffer = pending.buffer;
       }
-      if (result.error) throw result.error;
-      if (!result.bytes) return;
-      const buffer = await this.audio.decode(result.bytes);
-      if (generation !== this.generation) return;
+      // A failed prefetch is best-effort. Retry once after previous audio is freed.
+      const buffer =
+        this.buffer ??
+        (await this.prepare(this.index, generation, this.requestBudget()));
+      if (generation !== this.generation || !buffer) return;
       this.buffer = buffer;
       this.start(generation);
     } catch (error) {
@@ -169,43 +194,70 @@ export class ReadingSession {
     }
   }
   private start(generation: number) {
-    this.audio.play(this.buffer!, this.offset, () => {
-      if (generation !== this.generation || this.state !== "playing") return;
-      this.buffer = undefined;
-      this.offset = 0;
-      if (this.index + 1 >= this.segments.length) {
-        this.invalidate();
-        this.publish("finished");
-      } else {
-        this.index++;
-        this.publish("preparing");
-        void this.load(generation);
-      }
-    });
+    try {
+      this.audio.play(this.buffer!, this.offset, () => {
+        if (generation !== this.generation || this.state !== "playing") return;
+        this.buffer = undefined;
+        this.offset = 0;
+        if (this.index + 1 >= this.segments.length) {
+          this.invalidate();
+          this.publish("finished");
+        } else {
+          this.index++;
+          const next = this.prefetch[0];
+          if (next?.buffer) {
+            this.prefetch.shift();
+            this.buffer = next.buffer;
+            this.start(generation);
+          } else {
+            this.publish("preparing");
+            void this.load(generation);
+          }
+        }
+      });
+    } catch (error) {
+      this.fail(generation, error);
+      return;
+    }
     this.publish("playing");
-    if (
-      this.enablePrefetch &&
-      this.index + 1 < this.segments.length &&
-      !this.prefetch
-    ) {
-      const decodedBytes =
-        this.buffer!.length * this.buffer!.numberOfChannels * 4;
-      // Allow for both streamed chunks and their assembled ArrayBuffer.
-      const maxBytes = Math.min(
-        MAX_AUDIO_BYTES,
-        Math.floor(MAX_BUFFER_BYTES / 3),
-        Math.floor((MAX_BUFFER_BYTES - decodedBytes) / 2),
-      );
-      if (maxBytes >= 44) {
-        const index = this.index + 1;
-        this.prefetch = {
-          index,
-          result: this.request(index, generation, maxBytes).then(
-            (bytes) => ({ bytes }),
-            (error) => ({ error }),
-          ),
-        };
+    void this.fill(generation);
+  }
+  private async fill(generation: number) {
+    if (!this.enablePrefetch || this.fillingGeneration === generation) return;
+    this.fillingGeneration = generation;
+    try {
+      while (generation === this.generation && this.state === "playing") {
+        const last = this.prefetch.at(-1);
+        const index = (last?.index ?? this.index) + 1;
+        const seconds = this.prefetch.reduce(
+          (total, entry) => total + (entry.buffer?.duration ?? 0),
+          0,
+        );
+        const maxBytes = this.requestBudget();
+        if (
+          index >= this.segments.length ||
+          this.prefetch.length >= PREFETCH_SENTENCES ||
+          seconds >= PREFETCH_SECONDS ||
+          (last && !last.buffer) ||
+          maxBytes < 46
+        )
+          return;
+        const entry: Prefetch = { index, ready: Promise.resolve() };
+        this.prefetch.push(entry);
+        entry.ready = this.prepare(index, generation, maxBytes).then(
+          (buffer) => {
+            if (generation === this.generation) entry.buffer = buffer;
+          },
+          () => {
+            // Prefetch is best-effort; foreground retry supplies any final error.
+          },
+        );
+        await entry.ready;
+        if (!entry.buffer) return;
       }
+    } finally {
+      if (this.fillingGeneration === generation)
+        this.fillingGeneration = undefined;
     }
   }
   private fail(generation: number, error: unknown) {

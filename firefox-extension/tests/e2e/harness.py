@@ -89,6 +89,7 @@ class FixtureServer:
                     "/mouse",
                     "/web-app",
                     "/editable-document",
+                    "/short-sentences",
                 }:
                     fixture = EXTENSION / "tests" / "fixtures" / f"{self.path[1:]}.html"
                     self.send(200, fixture.read_bytes(), "text/html")
@@ -220,6 +221,34 @@ def select_contents(driver, identifier):
         const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);""",
         identifier,
     )
+
+
+def observe_playback(driver):
+    """Record public UI transitions without changing the extension or its audio."""
+    driver.execute_script(
+        """const host = document.getElementById('kokoro-reader-controls');
+        window.readerTransitions = [];
+        new MutationObserver(() => window.readerTransitions.push({
+            time: performance.now(), state: host.dataset.state,
+            sentence: host.dataset.sentence,
+            status: host.shadowRoot.querySelector('[role=status]').textContent
+        })).observe(host, {attributes: true, attributeFilter: ['data-state', 'data-sentence']});"""
+    )
+
+
+def preparation_gaps(transitions):
+    gaps = []
+    preparing_at = None
+    began = False
+    for transition in transitions:
+        if transition["state"] == "playing":
+            if began and preparing_at is not None:
+                gaps.append(transition["time"] - preparing_at)
+            preparing_at = None
+            began = True
+        elif began and transition["state"] == "preparing":
+            preparing_at = transition["time"]
+    return gaps
 
 
 class Reader:

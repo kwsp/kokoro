@@ -114,7 +114,11 @@ If the source text, visibility, or relevant page structure changes, the reader s
 Selection refresh stays within the retained DOM ranges, and removing the selected nodes may require a fresh selection.
 
 The reader requests complete WAV files from `/v1/audio/speech` and uses Web Audio's playback clock to advance highlights.
-It fetches at most one next sentence while the current sentence plays and keeps the logical raw/decoded audio budget within 32 MiB.
+While the current sentence plays, it fetches and decodes future sentences serially until it has about 15 seconds buffered or eight future sentences, whichever comes first.
+The final sentence can cross the duration target because its length is known only after generation.
+The first sentence starts as soon as it is ready, without waiting for the future buffer to fill.
+Ready sentences advance immediately, and highlights follow playback rather than preparation.
+The combined logical raw, streaming assembly, and decoded audio budget stays within 32 MiB.
 The background serializes synthesis requests across tabs and waits for an aborted fetch to settle before starting another.
 Server cancellation is cooperative, so a current model operation may finish after Stop.
 A busy response is retried at most twice with bounded `Retry-After` waits; continued failures offer Retry without advancing the sentence.
@@ -125,9 +129,11 @@ An unsuccessful prefetch is discarded and the unread sentence gets a normal requ
 - English voices supported by the local server; sentence highlighting rather than word timing.
 - Top-level HTML documents and ordinary DOM text; Firefox internal pages, PDF viewers, cross-origin frames, and shadow-root selections are outside this version's scope.
 - Conservative article extraction may ask for a manual selection on ambiguous or highly dynamic pages.
-- Complete WAV decoding can leave a short gap when next-sentence generation takes longer than playback.
+- Gaps can still occur when synthesis exhausts the available read-ahead buffer, especially immediately after starting or seeking.
 - Loopback HTTP endpoints only, with a shared token stored in Firefox extension settings; the token is not included in page controls or content-script messages.
 - The 32 MiB budget covers retained raw audio, streaming assembly, and decoded samples; browser-internal copies and garbage collection are outside the extension's control.
+
+The short-sentence diagnosis, implementation steps, CPU/MPS measurements, and playback regression commands are in [PERFORMANCE.md](PERFORMANCE.md).
 
 ## Installed-extension test
 

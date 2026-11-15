@@ -1,5 +1,6 @@
 """Opt-in installed-Firefox smoke tests against cached Kokoro on CPU and MPS."""
 
+import json
 import os
 import platform
 import socket
@@ -11,7 +12,14 @@ from pathlib import Path
 
 import httpx
 import pytest
-from harness import TOKEN, Reader, activate_reader, configure
+from harness import (
+    TOKEN,
+    Reader,
+    activate_reader,
+    configure,
+    observe_playback,
+    preparation_gaps,
+)
 from selenium.webdriver import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -131,4 +139,29 @@ def test_cached_kokoro_read_pause_seek_and_finish(
     print(
         f"Real Kokoro {live_kokoro.device}: first audio in {first_audio:.2f}s; "
         "installed Firefox read, pause/resume, click seek, and completion passed"
+    )
+
+
+def test_cached_kokoro_short_replies(live_kokoro, firefox, server, tmp_path):
+    """Measure real sentence preparation stalls; hardware speed is not a pass condition."""
+    configure(firefox, live_kokoro)
+    firefox.get(f"http://reader.test:{server.port}/short-sentences")
+    activate_reader(firefox)
+    reader = Reader(firefox)
+    reader.wait = WebDriverWait(firefox, 120, poll_frequency=0.1)
+    observe_playback(firefox)
+    reader.click("play")
+    reader.wait_state("playing")
+    reader.wait_state("finished")
+    transitions = firefox.execute_script("return window.readerTransitions")
+    (tmp_path / "transitions.json").write_text(json.dumps(transitions, indent=2))
+    spoken = [item["sentence"] for item in transitions if item["state"] == "playing"]
+    assert spoken == [str(index) for index in range(1, 9)]
+    assert reader.highlight() == ""
+    assert server.requests == []
+    assert live_kokoro.process.poll() is None
+    gaps = preparation_gaps(transitions)
+    print(
+        f"Real Kokoro {live_kokoro.device}: 8 short replies; "
+        f"preparation gaps ms: {gaps}; total {sum(gaps):.0f}ms"
     )

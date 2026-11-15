@@ -153,6 +153,7 @@ Stop and clean up on document navigation, tab closure, or a new session in anoth
 ## Audio and the existing server
 
 Use **one complete WAV request per sentence/segment initially**, with at most one sentence prefetched while another plays.
+The later [short-sentence performance follow-up](PERFORMANCE.md) replaces the single future sentence with a bounded, serially prepared queue while retaining this per-sentence API.
 This reuses the server as implemented and makes sentence/audio boundaries explicit.
 It sacrifices within-sentence streaming to simplify decoding, seeking, and highlighting; test first-audio latency before adding PCM transport complexity.
 `decodeAudioData()` expects complete audio-file data, so do not pass it arbitrary network fragments.
