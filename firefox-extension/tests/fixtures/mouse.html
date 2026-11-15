@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Mouse fixture</title>
+<style>body{font:18px/1.5 system-ui;margin:24px}article{width:340px}p{margin:16px 0}section{max-width:480px}input,textarea,[contenteditable]{display:block;margin:8px 0;padding:4px}button{font:inherit}[contenteditable]{border:1px solid #999}</style>
+</head><body>
+<article><h1>Mouse reading</h1>
+<p id="first"><span id="first-words">First sentence stays ordinary.</span> <a id="link" href="#destination">A useful link.</a></p>
+<p id="second">Second <em id="wrapped">sentence crosses several inline pieces and wraps across more than one line in this narrow article</em>.</p>
+<p id="last">Last <strong id="last-words">sentence starts here</strong>.</p>
+</article>
+<section aria-label="Ordinary page controls">
+<button id="page-button" onclick="this.dataset.clicks = String(Number(this.dataset.clicks || 0) + 1)">Page button</button>
+<input id="page-input" aria-label="Page input"><textarea id="page-textarea" aria-label="Page textarea"></textarea>
+<div id="page-editor" contenteditable="true" aria-label="Page editor">Editable text</div>
+<details id="page-details"><summary id="page-summary">Open details</summary><p>Details remain normal.</p></details>
+<div id="destination">Link destination</div>
+</section>
+</body></html>

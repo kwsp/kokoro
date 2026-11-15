@@ -1,8 +1,8 @@
 # Kokoro Firefox reader development
 
 The extension is being implemented according to [IMPLEMENTATION.md](IMPLEMENTATION.md).
-Steps 1 through 3 provide article and selection reading with sentence highlights, pause/resume, Stop, and Retry.
-Click-to-read and the remaining lifecycle handling are added in subsequent steps.
+Steps 1 through 4 provide article and selection reading with sentence highlights, pause/resume, Stop, Retry, and explicit click-to-read.
+Cross-tab ownership, prefetch, and the remaining lifecycle handling are added in the final step.
 
 ## Build and checks
 
@@ -39,6 +39,16 @@ The original page selection is preserved.
 If the CSS Highlight API is unavailable, the reader outlines the current block and reports “Block highlight”; Stop or Close restores the previous outline.
 No audio starts merely because the extension is activated.
 
+Enable **Click to read** to preview a sentence under the pointer and click it to start reading there.
+The mode uses the current reading scope, so selection reading stays within the selected passage.
+Seeking works while preparing, playing, or paused and discards obsolete audio.
+The green hover preview has lower priority than the speaking highlight.
+Press Escape to leave click mode without stopping playback.
+Stop clears the preview and resets reading while leaving click mode enabled; toggle the button or press Escape to return to ordinary clicking.
+Links, buttons, typing, editable areas, details toggles, modified clicks, right/middle clicks, and drag selections keep their normal behavior.
+Clicks outside actual text rectangles do not select a nearby sentence.
+When the Highlight API is absent, click seeking still works with the spoken-block outline, but hover preview is unavailable.
+
 ## Installed-extension test
 
 Install the Python test dependency from the repository root:
@@ -60,6 +70,8 @@ On macOS, the test also isolates Firefox's application-data home to avoid access
 The suite captures speaking and paused screenshots and verifies actual Web Audio completion, exact selection highlights, sequential requests, cancellation, and recoverable audio errors.
 Failure artifacts contain the control state, driver log, sanitized request history, and screenshots, without authorization headers.
 Unit tests also cover semantic root selection, conservative Readability mappings, preservation of the source DOM, outline restoration, Unicode/whitespace offsets, long segment splitting, disjoint selections, audio-clock offsets, stale network/decode callbacks, request validation, and the combined 32 MiB raw/decoded audio limit.
+Pointer tests check interactive-target policy, exact caret/rectangle matching, drag detection, canceled hover frames, and seek transitions from playing or paused audio.
+Firefox cases use real pointer coordinates on wrapped inline text, actual drag selection, delayed speech responses, and ordinary page controls.
 It activates the installed extension through Firefox's real Extensions menu, Alt+Shift+K command, and selection context menu using browser-chrome automation.
 The test directory retains `speaking.png`, `final.png`, `browser-controls.json`, `server-history.json`, and the geckodriver log for diagnosis.
 The artifacts omit request authorization headers and options-page HTML.

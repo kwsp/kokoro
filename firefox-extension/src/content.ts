@@ -8,6 +8,7 @@ import {
   type ReadingSegment,
 } from "./mapping";
 import { ReadingSession } from "./session";
+import { ClickReader } from "./mouse";
 
 if (!document.getElementById(HOST_ID)) mount();
 
@@ -58,16 +59,27 @@ function mount() {
       if (segments.length) session.play();
     },
     pause: () => session.pause(),
-    stop: () => session.stop(),
+    stop: () => {
+      clickReader.clearPreview();
+      session.stop();
+    },
+    clickMode: () => clickReader.toggle(),
     settings: () => {
       void browser.runtime.sendMessage({ type: "settings:open" });
     },
     close,
   });
+  const clickReader = new ClickReader(
+    document,
+    () => segments,
+    (index) => session.seek(index),
+    (enabled) => controls.setClickMode(enabled),
+  );
 
   function activate(selectionOnly = false) {
     const ranges = captureSelection(window.getSelection());
     if (ranges.length || !segments.length || selectionOnly) {
+      clickReader.reset();
       extractionError = undefined;
       try {
         segments = ranges.length
@@ -107,6 +119,7 @@ function mount() {
   };
 
   function close() {
+    clickReader.close();
     session.close();
     highlight.close();
     controls.close();

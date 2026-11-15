@@ -6,6 +6,7 @@ export function createControls(actions: {
   play: () => void;
   pause: () => void;
   stop: () => void;
+  clickMode: () => void;
   settings: () => void;
   close: () => void;
 }) {
@@ -16,7 +17,7 @@ export function createControls(actions: {
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent =
-    ":host{color-scheme:light}section{font:14px system-ui;color:#17252c;background:#fff;border:1px solid #c8d5db;border-radius:12px;padding:12px;box-shadow:0 4px 22px #0002}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #bbc9ce;background:#f5f9fa;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid #238072}p{margin:8px 0 0;font-size:12px;max-width:32em;overflow-wrap:anywhere}";
+    ":host{color-scheme:light}section{font:14px system-ui;color:#17252c;background:#fff;border:1px solid #c8d5db;border-radius:12px;padding:12px;box-shadow:0 4px 22px #0002}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #bbc9ce;background:#f5f9fa;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid #238072}button[aria-pressed=true]{background:#d5eee7;border-color:#238072}p{margin:8px 0 0;font-size:12px;max-width:32em;overflow-wrap:anywhere}";
   shadow.append(style);
   const panel = document.createElement("section");
   panel.setAttribute("aria-label", "Kokoro reader");
@@ -48,6 +49,9 @@ export function createControls(actions: {
     else actions.play();
   });
   addButton("stop", "Stop", actions.stop);
+  const clickMode = addButton("click-mode", "Click to read", actions.clickMode);
+  clickMode.setAttribute("aria-pressed", "false");
+  clickMode.title = "Choose a sentence on the page. Escape exits this mode.";
   addButton("settings", "Settings", actions.settings);
   addButton("close", "Close", actions.close);
   panel.append(nav, status);
@@ -77,6 +81,8 @@ export function createControls(actions: {
   return {
     host,
     update,
+    setClickMode: (enabled: boolean) =>
+      clickMode.setAttribute("aria-pressed", String(enabled)),
     focus: () => play.focus(),
     close: () => host.remove(),
   };

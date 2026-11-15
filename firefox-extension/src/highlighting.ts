@@ -1,5 +1,29 @@
 import type { ReadingSegment } from "./mapping";
 
+export class HoverHighlight {
+  private style = document.createElement("style");
+
+  constructor() {
+    this.style.textContent =
+      "::highlight(kokoro-hover){background-color:#ccefe8;color:#17252c;text-decoration-line:underline;text-decoration-style:dotted;text-decoration-color:#167465;text-decoration-thickness:2px}";
+    document.documentElement.append(this.style);
+  }
+
+  show(segment?: ReadingSegment) {
+    if (typeof CSS === "undefined" || !CSS.highlights) return;
+    CSS.highlights.delete("kokoro-hover");
+    if (!segment || typeof Highlight === "undefined") return;
+    const mark = new Highlight(...segment.ranges);
+    mark.priority = -1;
+    CSS.highlights.set("kokoro-hover", mark);
+  }
+
+  close() {
+    this.show();
+    this.style.remove();
+  }
+}
+
 interface OutlineBackup {
   element: HTMLElement;
   values: {

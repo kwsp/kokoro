@@ -209,6 +209,31 @@ describe("reading session", () => {
     expect(requests.map((r) => r.text)).toEqual(["Second.", "Second."]);
     expect(audio.play).toHaveBeenCalledOnce();
   });
+  it.each(["playing", "paused"])(
+    "seeks from %s without carrying an offset or adopting old end events",
+    async (state) => {
+      const { session, ready, audio, requests, callbacks } = fixture();
+      await ready();
+      const obsoleteEnd = callbacks[0]!;
+      if (state === "paused") session.pause();
+      session.seek(1);
+      await settle();
+      expect(session.snapshot).toMatchObject({
+        state: "preparing",
+        index: 1,
+        offset: 0,
+        highlightedIndex: null,
+      });
+      requests[1]!.result.resolve(new ArrayBuffer(44));
+      await settle();
+      expect(audio.play.mock.calls.at(-1)?.[1]).toBe(0);
+      obsoleteEnd();
+      expect(session.snapshot).toMatchObject({ state: "playing", index: 1 });
+      expect(requests).toHaveLength(2);
+      callbacks.at(-1)!();
+      expect(session.snapshot.state).toBe("finished");
+    },
+  );
   it("a failed decode produces Retry without adopting audio", async () => {
     const { session, ready, audio } = fixture();
     audio.decode.mockRejectedValueOnce(new Error("Invalid WAV."));

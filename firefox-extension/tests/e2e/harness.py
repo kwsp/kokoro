@@ -22,7 +22,7 @@ TOKEN = "fixture-secret"
 TEXT = "Kokoro reads this first paragraph."
 
 
-def tone():
+def tone(seconds=2):
     output = io.BytesIO()
     with wave.open(output, "wb") as audio:
         audio.setnchannels(1)
@@ -31,7 +31,7 @@ def tone():
         audio.writeframes(
             b"".join(
                 struct.pack("<h", int(2000 * math.sin(2 * math.pi * 440 * n / 24000)))
-                for n in range(48000)
+                for n in range(int(seconds * 24000))
             )
         )
     return output.getvalue()
@@ -83,6 +83,7 @@ class FixtureServer:
                     "/readability",
                     "/ambiguous",
                     "/empty",
+                    "/mouse",
                 }:
                     fixture = EXTENSION / "tests" / "fixtures" / f"{self.path[1:]}.html"
                     self.send(200, fixture.read_bytes(), "text/html")

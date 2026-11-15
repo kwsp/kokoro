@@ -118,3 +118,23 @@ Unit coverage caught CSSOM color serialization affecting outline restoration, wh
 
 Remaining scope for later steps: click-to-read, cross-tab ownership, bounded prefetch/retries, mutation/settings lifecycle, and the real-backend listening check.
 Readability mappings intentionally reject pages whose extracted blocks cannot be matched confidently; manual selection remains the fallback.
+
+### Step 4 report
+
+Implemented an explicit Click to read toggle with accessible pressed state, low-priority sentence hover preview, and click-to-seek within the current reading scope.
+Pointer resolution combines Firefox's caret position with actual source-range rectangles, so nearby whitespace does not select a sentence.
+The controller preserves links, native and custom controls, editable text, details summaries, modified and non-left clicks, and text-selection drags.
+Hover work is limited to one animation frame and invalidated on scope replacement, scrolling, blur, Escape, Stop, or Close.
+Escape exits click mode without changing playback, and Stop clears preview while leaving the explicit mode enabled.
+Close removes the pointer/keyboard listeners and extension-owned hover marks.
+When CSS highlights are unavailable, seeking remains available with the existing speaking-block outline and no hover preview.
+
+Unit coverage exercises event policy, caret/rectangle targeting, drag detection, stale hover callbacks, highlight ownership, controls, and generation-safe seek transitions from playing or paused audio.
+The browser suite adds real wrapped-text pointer targeting, hover/click seeking, Escape, delayed-response seeking to the last sentence, links/buttons/typing/details, actual drag selection, and ignored whitespace/modifiers/right clicks.
+Validation passed: TypeScript, ESLint, Prettier, 116 unit tests, build, scoped web-ext validation with zero errors and warnings, Black, Ruff, and all thirteen Firefox 157.0.1 E2E scenarios.
+The complete browser run passed twelve cases and exposed a native animation-frame receiver error in hover handling.
+The controller now calls `window.requestAnimationFrame` and `window.cancelAnimationFrame` through small wrappers, with a regression unit checking the Window receiver.
+All four mouse cases then passed in 18.24 seconds, completing validation of the affected paths and the full scenario set.
+The primary agent reviewed the wrapped-sentence hover screenshot and confirmed an exact visible preview, clear toggle state, and unchanged ordinary page controls.
+
+Remaining scope for the final step: cross-tab ownership, bounded prefetch/retries, mutation/settings lifecycle, visual/accessibility review, packaging, and real-backend listening validation.

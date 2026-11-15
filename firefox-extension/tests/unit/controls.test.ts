@@ -15,6 +15,7 @@ describe("reader controls", () => {
       play: vi.fn(),
       pause: vi.fn(),
       stop: vi.fn(),
+      clickMode: vi.fn(),
       settings: vi.fn(),
       close: vi.fn(),
     };
@@ -40,6 +41,12 @@ describe("reader controls", () => {
       button.click();
     }
     expect(actions.pause).toHaveBeenCalledTimes(2);
+    const mode = root.getElementById("click-mode") as HTMLButtonElement;
+    expect(mode.getAttribute("aria-pressed")).toBe("false");
+    mode.click();
+    expect(actions.clickMode).toHaveBeenCalledOnce();
+    controls.setClickMode(true);
+    expect(mode.getAttribute("aria-pressed")).toBe("true");
     controls.update({ ...snapshot, state: "paused" });
     expect(button.textContent).toBe("Resume");
     button.click();
@@ -67,6 +74,7 @@ describe("reader controls", () => {
       play: noop,
       pause: noop,
       stop: noop,
+      clickMode: noop,
       settings: noop,
       close: noop,
     });
