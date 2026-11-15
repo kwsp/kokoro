@@ -32,7 +32,9 @@ function mouse(target: EventTarget, type: string, init: MouseEventInit = {}) {
   target.dispatchEvent(event);
   return event;
 }
-function fixture(options: ConstructorParameters<typeof ClickReader>[4] = {}) {
+const host = document.createElement("div");
+
+function fixture(options: ConstructorParameters<typeof ClickReader>[5] = {}) {
   const values = segments();
   const preview = { show: vi.fn(), close: vi.fn() };
   const seek = vi.fn();
@@ -44,7 +46,7 @@ function fixture(options: ConstructorParameters<typeof ClickReader>[4] = {}) {
     return frames.length;
   });
   const cancel = vi.fn();
-  const reader = new ClickReader(document, () => values, seek, changed, {
+  const reader = new ClickReader(document, host, () => values, seek, changed, {
     preview,
     hitTest: hit,
     requestFrame: request,
@@ -88,7 +90,6 @@ describe("pointer policy", () => {
     '<span role="radio">Radio</span>',
     '<span role="switch">Switch</span>',
     '<span role="combobox">Combobox</span>',
-    '<div id="kokoro-reader-controls">Controls</div>',
   ])("preserves interactive targets: %s", (html) => {
     document.body.innerHTML = html;
     expect(
@@ -96,8 +97,16 @@ describe("pointer policy", () => {
         document.body.firstElementChild!.lastElementChild ??
           document.body.firstElementChild,
         document,
+        host,
       ),
     ).toBe(false);
+  });
+  it("protects the toolbar host and its descendants", () => {
+    document.body.append(host);
+    host.innerHTML = "<span>Controls</span>";
+    expect(readableTarget(host, document, host)).toBe(false);
+    expect(readableTarget(host.firstElementChild, document, host)).toBe(false);
+    host.remove();
   });
   it.each([
     '<div contenteditable="true" role="textbox"><p>Editor prose.</p></div>',
@@ -106,7 +115,9 @@ describe("pointer policy", () => {
     '<div draggable="true"><p>Movable document block.</p></div>',
   ])("permits prose in application containers: %s", (html) => {
     document.body.innerHTML = html;
-    expect(readableTarget(document.querySelector("p"), document)).toBe(true);
+    expect(readableTarget(document.querySelector("p"), document, host)).toBe(
+      true,
+    );
   });
   it("still protects controls nested inside editable or focusable containers", () => {
     document.body.innerHTML =
@@ -114,17 +125,19 @@ describe("pointer policy", () => {
     for (const element of document.querySelectorAll(
       "a span,button,[role=button]",
     ))
-      expect(readableTarget(element, document)).toBe(false);
+      expect(readableTarget(element, document, host)).toBe(false);
   });
   it("allows ordinary prose under a skip-link target but excludes shadow roots", () => {
     document.body.innerHTML =
       '<main tabindex="-1"><p>Prose.</p></main><div id="shadow"></div>';
-    expect(readableTarget(document.querySelector("p"), document)).toBe(true);
+    expect(readableTarget(document.querySelector("p"), document, host)).toBe(
+      true,
+    );
     const root = document
       .getElementById("shadow")!
       .attachShadow({ mode: "open" });
     root.innerHTML = "<p>Private shadow prose.</p>";
-    expect(readableTarget(root.querySelector("p"), document)).toBe(false);
+    expect(readableTarget(root.querySelector("p"), document, host)).toBe(false);
   });
 });
 
@@ -192,7 +205,7 @@ describe("explicit click mode", () => {
     });
     vi.stubGlobal("requestAnimationFrame", request);
     vi.stubGlobal("cancelAnimationFrame", cancel);
-    const reader = new ClickReader(document, segments, vi.fn(), vi.fn(), {
+    const reader = new ClickReader(document, host, segments, vi.fn(), vi.fn(), {
       preview: { show: vi.fn(), close: vi.fn() },
     });
     reader.toggle();

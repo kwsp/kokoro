@@ -1,3 +1,4 @@
+import { createRuntimeTransport } from "./speech/runtime-transport";
 import { WebAudioPlayer } from "./speech/audio";
 import {
   editorRootFor,
@@ -36,42 +37,7 @@ function mount() {
   const session = new ReadingSession(
     segments,
     new WebAudioPlayer(),
-    {
-      async claim(leaseId) {
-        const result = (await browser.runtime.sendMessage({
-          type: "reader:claim",
-          sessionId,
-          leaseId,
-        })) as { ok: boolean; error?: string };
-        if (!result?.ok)
-          throw new Error(result?.error ?? "Could not start reading. Retry.");
-      },
-      release(leaseId) {
-        void browser.runtime
-          .sendMessage({ type: "reader:release", sessionId, leaseId })
-          .catch(() => {});
-      },
-      async fetch(text, requestId, leaseId, maxBytes) {
-        const result = (await browser.runtime.sendMessage({
-          type: "speech:generate",
-          text,
-          requestId,
-          sessionId,
-          leaseId,
-          maxBytes,
-        })) as { ok: boolean; audio?: ArrayBuffer; error?: string };
-        if (!result?.ok || !(result.audio instanceof ArrayBuffer))
-          throw new Error(
-            result?.error ?? "No audio received. Retry this sentence.",
-          );
-        return result.audio;
-      },
-      cancel(requestId, leaseId) {
-        void browser.runtime
-          .sendMessage({ type: "speech:cancel", requestId, sessionId, leaseId })
-          .catch(() => {});
-      },
-    },
+    createRuntimeTransport(sessionId),
     (snapshot) => {
       highlight.show(
         snapshot.highlightedIndex === null
@@ -108,6 +74,7 @@ function mount() {
   });
   const clickReader = new ClickReader(
     document,
+    controls.host,
     () => segments,
     (index) => session.seek(index),
     (enabled) => {
