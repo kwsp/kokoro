@@ -5,6 +5,8 @@ An inference library for [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
 > **Kokoro** is an open-weight TTS model with 82 million parameters. Despite its lightweight architecture, it delivers comparable quality to larger models while being significantly faster and more cost-efficient. With Apache-licensed weights, Kokoro can be deployed anywhere from production environments to personal projects.
 
 ### Usage
+For a local OpenAI-style HTTP speech endpoint with PCM/WAV output, see the [server guide](SERVER.md).
+
 You can run this basic cell on [Google Colab](https://colab.research.google.com/). [Listen to samples](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/SAMPLES.md).
 ```py
 !pip install -q kokoro>=0.9.4 soundfile

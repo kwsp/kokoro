@@ -1,9 +1,9 @@
-import torch
 import numpy as np
 import pytest
+import torch
+
 from kokoro.custom_stft import CustomSTFT
 from kokoro.istftnet import TorchSTFT
-import torch.nn.functional as F
 
 
 @pytest.fixture
@@ -35,8 +35,8 @@ def test_magnitude_phase_consistency(sample_audio):
     torch_stft = TorchSTFT(filter_length=800, hop_length=200, win_length=800)
 
     # Get magnitude and phase from both implementations
-    custom_mag, custom_phase = custom_stft.transform(sample_audio)
-    torch_mag, torch_phase = torch_stft.transform(sample_audio)
+    custom_mag, _custom_phase = custom_stft.transform(sample_audio)
+    torch_mag, _torch_phase = torch_stft.transform(sample_audio)
 
     # Compare magnitudes ignoring the boundary frames
     custom_mag_center = custom_mag[..., 2:-2]
@@ -79,3 +79,58 @@ def test_different_window_sizes():
 
         # Check that output length is reasonable
         assert output.shape[-1] >= signal.shape[-1]
+
+
+@pytest.mark.parametrize("filter_length", [127, 128, 512])
+@pytest.mark.parametrize("signal_kind", ["dc", "nyquist", "random"])
+def test_roundtrip_preserves_amplitude_and_partial_final_hop(
+    filter_length, signal_kind
+):
+    length = 1003
+    if signal_kind == "dc":
+        signal = torch.full((1, length), 0.75)
+    elif signal_kind == "nyquist":
+        signal = (torch.arange(length) % 2 * 2 - 1).float().unsqueeze(0)
+    else:
+        signal = torch.randn(2, length, generator=torch.Generator().manual_seed(42))
+    stft = CustomSTFT(
+        filter_length=filter_length,
+        hop_length=filter_length // 4,
+        win_length=filter_length,
+    )
+    output = stft(signal)
+    assert output.shape == (signal.shape[0], 1, length)
+    torch.testing.assert_close(output[:, 0], signal, rtol=1e-4, atol=1e-5)
+
+
+def test_shorter_window_matches_torch_transform_and_reconstructs():
+    signal = torch.randn(1, 1003, generator=torch.Generator().manual_seed(42))
+    stft = CustomSTFT(filter_length=128, hop_length=16, win_length=96)
+    magnitude, phase = stft.transform(signal)
+    expected = torch.stft(
+        signal,
+        n_fft=128,
+        hop_length=16,
+        win_length=96,
+        window=torch.hann_window(96),
+        pad_mode="replicate",
+        return_complex=True,
+    )
+    torch.testing.assert_close(
+        magnitude * torch.cos(phase), expected.real, atol=1e-5, rtol=1e-4
+    )
+    torch.testing.assert_close(
+        magnitude * torch.sin(phase), expected.imag, atol=1e-5, rtol=1e-4
+    )
+    torch.testing.assert_close(
+        stft.inverse(magnitude, phase, length=1003)[:, 0], signal, atol=1e-5, rtol=1e-4
+    )
+
+
+def test_inverse_without_length_keeps_default_center_crop():
+    signal = torch.randn(1, 1003, generator=torch.Generator().manual_seed(42))
+    stft = CustomSTFT(filter_length=128, hop_length=32, win_length=128)
+    magnitude, phase = stft.transform(signal)
+    output = stft.inverse(magnitude, phase)
+    assert output.shape == (1, 1, 992)
+    torch.testing.assert_close(output[:, 0], signal[:, :992], atol=1e-5, rtol=1e-4)
