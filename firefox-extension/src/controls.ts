@@ -1,3 +1,4 @@
+import { ChevronUp, createElement, Settings, X } from "lucide";
 import type { Snapshot } from "./session";
 
 export const HOST_ID = "kokoro-reader-controls";
@@ -17,7 +18,7 @@ export function createControls(actions: {
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent =
-    ":host{color-scheme:light}section{font:14px system-ui;color:#17252c;background:#fff;border:1px solid #c8d5db;border-radius:12px;padding:12px;box-shadow:0 4px 22px #0002}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #bbc9ce;background:#f5f9fa;color:inherit;cursor:pointer}button:focus-visible{outline:3px solid #238072}button[aria-pressed=true]{background:#d5eee7;border-color:#238072}p{margin:8px 0 0;font-size:12px;max-width:32em;overflow-wrap:anywhere}.advanced{max-height:min(45vh,24em);overflow:auto;margin-bottom:10px;border-bottom:1px solid #c8d5db;padding-bottom:8px}.advanced p{margin:5px 0}.advanced ol{font-size:12px;margin:6px 0;padding-left:2em}.advanced li{margin:4px 0;overflow-wrap:anywhere}.advanced[hidden]{display:none}";
+    ":host{color-scheme:light}section{font:14px system-ui;color:#17252c;background:#fff;border:1px solid #c8d5db;border-radius:12px;padding:12px;box-shadow:0 4px 22px #0002}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid #bbc9ce;background:#f5f9fa;color:inherit;cursor:pointer}button.icon{display:inline-flex;align-items:center;justify-content:center;padding:6px}button.icon svg{width:18px;height:18px;display:block}#advanced-toggle[aria-expanded=true] svg{transform:rotate(180deg)}button:focus-visible{outline:3px solid #238072}button[aria-pressed=true]{background:#d5eee7;border-color:#238072}p{margin:8px 0 0;font-size:12px;max-width:32em;overflow-wrap:anywhere}.advanced{max-height:min(45vh,24em);overflow:auto;margin-bottom:10px;border-bottom:1px solid #c8d5db;padding-bottom:8px}.advanced p{margin:5px 0}.advanced ol{font-size:12px;margin:6px 0;padding-left:2em}.advanced li{margin:4px 0;overflow-wrap:anywhere}.advanced[hidden]{display:none}";
   shadow.append(style);
   const panel = document.createElement("section");
   panel.setAttribute("aria-label", "Kokoro reader");
@@ -47,6 +48,16 @@ export function createControls(actions: {
     nav.append(button);
     return button;
   };
+  const setIcon = (
+    button: HTMLButtonElement,
+    label: string,
+    icon: Parameters<typeof createElement>[0],
+  ) => {
+    button.classList.add("icon");
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.replaceChildren(createElement(icon, { "aria-hidden": "true" }));
+  };
   const play = addButton("play", "Play", () => {
     if (
       !selectionAvailable &&
@@ -59,8 +70,8 @@ export function createControls(actions: {
   const clickMode = addButton("click-mode", "Click to read", actions.clickMode);
   clickMode.setAttribute("aria-pressed", "false");
   clickMode.title = "Choose a sentence on the page. Escape exits this mode.";
-  addButton("settings", "Settings", actions.settings);
-  addButton("close", "Close", actions.close);
+  setIcon(addButton("settings", "", actions.settings), "Settings", Settings);
+  setIcon(addButton("close", "", actions.close), "Close", X);
   const advanced = document.createElement("div");
   advanced.className = "advanced";
   advanced.id = "advanced-panel";
@@ -73,6 +84,7 @@ export function createControls(actions: {
       .set({ advancedExpanded: !advanced.hidden })
       .catch(() => {});
   });
+  setIcon(toggle, "Advanced", ChevronUp);
   toggle.setAttribute("aria-controls", advanced.id);
   toggle.setAttribute("aria-expanded", "false");
   let timer: ReturnType<typeof setInterval> | undefined;

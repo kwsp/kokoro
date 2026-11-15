@@ -30,3 +30,8 @@ await copyFile(
   "node_modules/@mozilla/readability/Readability.js",
   join(outdir, "Readability.js"),
 );
+
+await copyFile(
+  "node_modules/lucide/LICENSE",
+  join(outdir, "Lucide-LICENSE.txt"),
+);

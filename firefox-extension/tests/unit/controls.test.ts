@@ -60,6 +60,18 @@ describe("reader controls", () => {
     const panel = root.getElementById("advanced-panel")!;
     const toggle = root.getElementById("advanced-toggle") as HTMLButtonElement;
     expect(panel.hidden).toBe(true);
+    expect(toggle.getAttribute("aria-label")).toBe("Advanced");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    for (const [id, label] of [
+      ["settings", "Settings"],
+      ["close", "Close"],
+      ["advanced-toggle", "Advanced"],
+    ] as const) {
+      const button = root.getElementById(id)!;
+      expect(button.getAttribute("aria-label")).toBe(label);
+      expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+      expect(button.textContent).toBe("");
+    }
     toggle.click();
     expect(panel.hidden).toBe(false);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
