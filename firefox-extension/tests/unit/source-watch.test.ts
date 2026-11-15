@@ -79,6 +79,25 @@ describe("source lifecycle", () => {
     await settle();
     expect(changed).toHaveBeenCalledOnce();
   });
+  it("reports node replacement without exposing source text", async () => {
+    const root = document.querySelector("article")!;
+    const report = vi.fn();
+    watchSource(root, [], false, vi.fn(), "page", report);
+    const paragraph = root.querySelector("p")!;
+    paragraph.replaceChild(
+      document.createTextNode(paragraph.textContent!),
+      paragraph.firstChild!,
+    );
+    await settle();
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "node-identity",
+        sameTextAtDifference: true,
+        mutations: expect.objectContaining({ inside: 1, childList: 1 }),
+      }),
+    );
+    expect(JSON.stringify(report.mock.calls)).not.toContain("First sentence");
+  });
   it("identifies identical selections without losing exact offsets", () => {
     const range = document.createRange();
     range.selectNodeContents(document.querySelector("p")!);

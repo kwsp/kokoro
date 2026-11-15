@@ -60,3 +60,30 @@ def test_advanced_shows_queued_audio_and_pause_reset(configured, server):
     gate.set()
     reader.click("stop")
     assert "Underruns: 0" in panel.text
+
+
+def test_download_log_after_source_change(configured, server, tmp_path):
+    import json
+
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    driver = configured
+    driver.get(f"http://reader.test:{server.port}/article")
+    activate_reader(driver)
+    reader = Reader(driver)
+    reader.click("play")
+    reader.wait_state("playing")
+    driver.execute_script(
+        "document.querySelector('article p').firstChild.textContent = 'Changed fixture text.'"
+    )
+    WebDriverWait(driver, 10).until(
+        lambda d: "Page changed"
+        in reader.host.shadow_root.find_element(By.CSS_SELECTOR, "[role=status]").text
+    )
+    reader.click("advanced-toggle")
+    reader.click("download-logs")
+    path = tmp_path / "kokoro-debug-log.json"
+    WebDriverWait(driver, 10).until(lambda d: path.exists() and path.stat().st_size > 0)
+    data = json.loads(path.read_text())
+    assert any(entry["event"] == "source-invalidated" for entry in data["entries"])
+    assert "Changed fixture text" not in path.read_text()

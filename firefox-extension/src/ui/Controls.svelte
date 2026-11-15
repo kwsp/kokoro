@@ -13,6 +13,7 @@
       stop: () => void;
       clickMode: () => void;
       settings: () => void;
+      downloadLogs: () => void;
       close: () => void;
     };
   } = $props();
@@ -129,6 +130,9 @@
       {#if diagnosticSnapshot}
         <Diagnostics snapshot={diagnosticSnapshot} {now} />
       {/if}
+      <button id="download-logs" type="button" onclick={actions.downloadLogs}
+        >Download debug logs</button
+      >
     </div>
   </div>
   <nav>

@@ -257,6 +257,7 @@ An underrun begins when playback reaches an unprepared next sentence and ends wh
 Startup, seeks, and resumes do not start an underrun.
 A gap interrupted by pause or error records the elapsed wait, and stop resets the statistics.
 The panel updates elapsed time only while open, and its expansion preference is held in extension storage.
+The panel can download a bounded in-memory session log of playback transitions and source invalidation reasons and mutation counts; it excludes source text, URLs, and tokens.
 
 Validation: 202 unit tests passed, and both advanced-panel tests passed in headed Firefox.
 The full Firefox suite passed all 49 cases, including real CPU and MPS coverage.

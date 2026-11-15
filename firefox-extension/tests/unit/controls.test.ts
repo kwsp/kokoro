@@ -29,6 +29,7 @@ describe("reader controls", () => {
       stop: noop,
       clickMode: noop,
       settings: noop,
+      downloadLogs: noop,
       close: noop,
     });
     const snapshot: Snapshot = {
@@ -54,6 +55,7 @@ describe("reader controls", () => {
       stop: noop,
       clickMode: noop,
       settings: noop,
+      downloadLogs: noop,
       close: noop,
     });
     const root = controls.host.shadowRoot!;
@@ -83,6 +85,35 @@ describe("reader controls", () => {
     expect(panel.hidden).toBe(true);
     controls.close();
   });
+  it("offers log download after source invalidation", () => {
+    const noop = () => {};
+    const downloadLogs = vi.fn();
+    const controls = createControls({
+      play: noop,
+      pause: noop,
+      stop: noop,
+      clickMode: noop,
+      settings: noop,
+      close: noop,
+      downloadLogs,
+    });
+    controls.update({
+      state: "error",
+      index: 0,
+      total: 0,
+      offset: 0,
+      highlightedIndex: null,
+      error: "Page changed; press Play to refresh.",
+    });
+    const root = controls.host.shadowRoot!;
+    (root.getElementById("advanced-toggle") as HTMLButtonElement).click();
+    const button = Array.from(root.querySelectorAll("button")).find(
+      (item) => item.textContent === "Download debug logs",
+    )!;
+    button.click();
+    expect(downloadLogs).toHaveBeenCalledOnce();
+    controls.close();
+  });
   it("restores the saved expansion preference after reopening", async () => {
     let expanded = false;
     vi.stubGlobal("browser", {
@@ -102,6 +133,7 @@ describe("reader controls", () => {
       stop: noop,
       clickMode: noop,
       settings: noop,
+      downloadLogs: noop,
       close: noop,
     };
     const first = createControls(actions);
@@ -129,6 +161,7 @@ describe("reader controls", () => {
         stop: noop,
         clickMode: noop,
         settings: noop,
+        downloadLogs: noop,
         close: noop,
       });
       const root = controls.host.shadowRoot!;
@@ -188,6 +221,7 @@ describe("reader controls", () => {
         stop: noop,
         clickMode: noop,
         settings: noop,
+        downloadLogs: noop,
         close: noop,
       });
       const toggle = controls.host.shadowRoot!.getElementById(
@@ -213,6 +247,7 @@ describe("reader controls", () => {
       stop: noop,
       clickMode: noop,
       settings: noop,
+      downloadLogs: noop,
       close: noop,
     });
     controls.update({
@@ -242,6 +277,7 @@ describe("reader controls", () => {
       stop: vi.fn(),
       clickMode: vi.fn(),
       settings: vi.fn(),
+      downloadLogs: vi.fn(),
       close: vi.fn(),
     };
     const controls = createControls(actions);
@@ -278,6 +314,7 @@ describe("reader controls", () => {
       stop: vi.fn(),
       clickMode: vi.fn(),
       settings: vi.fn(),
+      downloadLogs: vi.fn(),
       close: vi.fn(),
     };
     const controls = createControls(actions);
@@ -337,6 +374,7 @@ describe("reader controls", () => {
       stop: noop,
       clickMode: noop,
       settings: noop,
+      downloadLogs: noop,
       close: noop,
     });
     controls.update({

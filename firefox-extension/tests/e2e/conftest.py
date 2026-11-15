@@ -38,6 +38,10 @@ def firefox(tmp_path, request):
         options.add_argument("-headless")
     options.set_preference("network.dns.localDomains", "reader.test")
     options.set_preference("network.proxy.type", 0)
+    options.set_preference("browser.download.folderList", 2)
+    options.set_preference("browser.download.dir", str(tmp_path))
+    options.set_preference("browser.download.useDownloadDir", True)
+    options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/json")
     extension_dir = EXTENSION / "dist"
     if getattr(request, "param", {}).get("highlight_fallback"):
         extension_dir = tmp_path / "fallback-dist"

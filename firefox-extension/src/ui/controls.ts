@@ -11,6 +11,7 @@ export function createControls(actions: {
   stop: () => void;
   clickMode: () => void;
   settings: () => void;
+  downloadLogs: () => void;
   close: () => void;
 }) {
   const host = document.createElement("div");

@@ -1,5 +1,22 @@
 import { readableText, type ReadingSegment, type TextMode } from "./mapping";
 
+export interface SourceChangeDiagnostic {
+  reason: "root-disconnected" | "node-count" | "node-identity" | "text";
+  initialCount: number;
+  currentCount: number;
+  firstDifference: number | null;
+  sameTextAtDifference: boolean | null;
+  mutations: {
+    inside: number;
+    outside: number;
+    ancestor: number;
+    childList: number;
+    characterData: number;
+    attributes: number;
+    attributeNames: Record<string, number>;
+  };
+}
+
 /** Watch source text and visibility, rather than reacting to our outline styles. */
 export function watchSource(
   root: Element,
@@ -7,6 +24,7 @@ export function watchSource(
   selectionOnly: boolean,
   changed: () => void,
   mode: TextMode = selectionOnly ? "selection" : "page",
+  diagnostic?: (data: SourceChangeDiagnostic) => void,
 ) {
   const selectedNodes = [
     ...new Set(
@@ -33,17 +51,59 @@ export function watchSource(
     return result;
   };
   const initial = snapshot();
-  const observer = new MutationObserver(() => {
+  const observer = new MutationObserver((records) => {
     const current = snapshot();
-    if (
-      !root.isConnected ||
-      current.length !== initial.length ||
-      current.some(
-        (value, index) =>
-          value.node !== initial[index]?.node ||
-          value.text !== initial[index]?.text,
-      )
-    ) {
+    const firstDifference = current.findIndex(
+      (value, index) =>
+        value.node !== initial[index]?.node ||
+        value.text !== initial[index]?.text,
+    );
+    const reason = !root.isConnected
+      ? "root-disconnected"
+      : current.length !== initial.length
+        ? "node-count"
+        : firstDifference >= 0 &&
+            current[firstDifference]!.node !== initial[firstDifference]?.node
+          ? "node-identity"
+          : firstDifference >= 0
+            ? "text"
+            : undefined;
+    if (reason) {
+      const mutations = {
+        inside: 0,
+        outside: 0,
+        ancestor: 0,
+        childList: 0,
+        characterData: 0,
+        attributes: 0,
+        attributeNames: {} as Record<string, number>,
+      };
+      for (const record of records) {
+        if (root.contains(record.target)) mutations.inside++;
+        else if (record.target.contains(root)) mutations.ancestor++;
+        else mutations.outside++;
+        mutations[record.type]++;
+        if (record.type === "attributes" && record.attributeName) {
+          mutations.attributeNames[record.attributeName] =
+            (mutations.attributeNames[record.attributeName] ?? 0) + 1;
+        }
+      }
+      diagnostic?.({
+        reason,
+        initialCount: initial.length,
+        currentCount: current.length,
+        firstDifference:
+          firstDifference < 0
+            ? current.length !== initial.length
+              ? Math.min(current.length, initial.length)
+              : null
+            : firstDifference,
+        sameTextAtDifference:
+          firstDifference < 0
+            ? null
+            : current[firstDifference]?.text === initial[firstDifference]?.text,
+        mutations,
+      });
       observer.disconnect();
       changed();
     }

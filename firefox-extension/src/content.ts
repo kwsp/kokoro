@@ -1,3 +1,4 @@
+import { DebugLog } from "./debug-log";
 import { createRuntimeTransport } from "./speech/runtime-transport";
 import { WebAudioPlayer } from "./speech/audio";
 import {
@@ -21,6 +22,9 @@ import { ClickReader, type ClickScope } from "./reading/mouse";
 if (!document.getElementById(HOST_ID)) mount();
 
 function mount() {
+  const debug = new DebugLog();
+  debug.record("reader-mounted");
+  let lastPlayback = "";
   let segments: ReadingSegment[] = [];
   let extractionError: string | undefined;
   const sessionId = createRequestId();
@@ -39,6 +43,16 @@ function mount() {
     new WebAudioPlayer(),
     createRuntimeTransport(sessionId),
     (snapshot) => {
+      const state = `${snapshot.state}:${snapshot.index}:${snapshot.total}:${snapshot.diagnostics?.stage}`;
+      if (state !== lastPlayback) {
+        lastPlayback = state;
+        debug.record("playback", {
+          state: snapshot.state,
+          index: snapshot.index,
+          total: snapshot.total,
+          stage: snapshot.diagnostics?.stage,
+        });
+      }
       highlight.show(
         snapshot.highlightedIndex === null
           ? undefined
@@ -55,11 +69,16 @@ function mount() {
   );
   const controls = createControls({
     play: () => {
+      debug.record("play-requested");
       prepareReading();
       if (segments.length) session.play();
     },
-    pause: () => session.pause(),
+    pause: () => {
+      debug.record("pause-requested");
+      session.pause();
+    },
     stop: () => {
+      debug.record("stop-requested");
       clickReader.clearPreview();
       session.stop();
     },
@@ -70,6 +89,7 @@ function mount() {
     settings: () => {
       void browser.runtime.sendMessage({ type: "settings:open" });
     },
+    downloadLogs: () => debug.download(),
     close,
   });
   const clickReader = new ClickReader(
@@ -159,6 +179,9 @@ function mount() {
   }
 
   function refresh() {
+    debug.record("refresh", {
+      scope: selectionScope ? "selection" : editorRoot ? "editor" : "page",
+    });
     unwatch?.();
     clearEditorPreview();
     clickReader.reset();
@@ -196,8 +219,10 @@ function mount() {
             session.replaceSegments([]);
           },
           editorRoot && !selectionScope ? "document" : undefined,
+          (data) => debug.record("source-invalidated", data),
         );
     } catch (error) {
+      debug.record("extraction-failed");
       segments = [];
       extractionError =
         error instanceof Error
