@@ -58,3 +58,11 @@ await copyFile(
   "node_modules/lucide/LICENSE",
   join(outdir, "Lucide-LICENSE.txt"),
 );
+await copyFile(
+  "node_modules/svelte/LICENSE.md",
+  join(outdir, "Svelte-LICENSE.txt"),
+);
+await copyFile(
+  "node_modules/esm-env/LICENSE",
+  join(outdir, "esm-env-LICENSE.txt"),
+);
