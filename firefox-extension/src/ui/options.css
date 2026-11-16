@@ -2,8 +2,8 @@
   font:
     16px system-ui,
     sans-serif;
-  color: #17252c;
-  background: #f4f7f7;
+  color: var(--kokoro-text);
+  background: var(--kokoro-bg);
 }
 * {
   box-sizing: border-box;
@@ -17,19 +17,15 @@ body {
   min-height: 100vh;
 }
 #settings-panel {
-  background: #fff;
-  border-right: 1px solid #d8e2e2;
+  background: var(--kokoro-surface);
+  border-right: 1px solid var(--kokoro-border);
   padding: 2rem 1.5rem;
 }
 .brand {
-  color: #174d51;
+  color: var(--kokoro-accent);
   font-weight: 750;
   font-size: 1.25rem;
   margin-bottom: 2.25rem;
-}
-.brand span {
-  color: #657879;
-  font-weight: 500;
 }
 h1,
 h2,
@@ -40,7 +36,7 @@ h2 {
   font-size: 1.1rem;
 }
 .intro {
-  color: #647477;
+  color: var(--kokoro-muted);
   font-size: 0.875rem;
   margin: 0.35rem 0 1.25rem;
 }
@@ -69,24 +65,24 @@ textarea {
   width: 100%;
   margin-top: 0.35rem;
   padding: 0.6rem 0.65rem;
-  border: 1px solid #b6c7c8;
+  border: 1px solid var(--kokoro-control-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--kokoro-raised);
   color: inherit;
   font: inherit;
 }
 button {
-  border: 1px solid #b6c7c8;
+  border: 1px solid var(--kokoro-control-border);
   border-radius: 6px;
   padding: 0.55rem 0.85rem;
-  background: #fff;
-  color: #213f42;
+  background: var(--kokoro-raised);
+  color: var(--kokoro-text);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 button:hover:not(:disabled) {
-  background: #eef5f4;
+  background: var(--kokoro-hover);
 }
 button:disabled {
   opacity: 0.5;
@@ -97,7 +93,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [data-sentence-index]:focus-visible {
-  outline: 3px solid #25847e;
+  outline: 3px solid var(--kokoro-focus);
   outline-offset: 2px;
 }
 .actions {
@@ -111,7 +107,7 @@ textarea:focus-visible,
 #status {
   min-height: 1.5rem;
   margin-top: 0.75rem;
-  color: #52686a;
+  color: var(--kokoro-muted);
   font-size: 0.875rem;
 }
 #workspace {
@@ -127,13 +123,6 @@ textarea:focus-visible,
   align-items: end;
   gap: 1rem;
 }
-.eyebrow {
-  color: #638081;
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  font-weight: 700;
-  margin-bottom: 0.35rem;
-}
 h1 {
   font-size: clamp(1.6rem, 3vw, 2rem);
   letter-spacing: -0.025em;
@@ -146,17 +135,17 @@ h1 {
   margin: 1.5rem 0 1rem;
 }
 .primary {
-  color: #fff;
-  background: #19645f;
-  border-color: #19645f;
+  color: var(--kokoro-text);
+  background: var(--kokoro-accent-bg);
+  border-color: var(--kokoro-accent-bg);
   min-width: 5.5rem;
 }
 .primary:hover:not(:disabled) {
-  background: #124e4a;
+  background: var(--kokoro-accent-hover);
 }
 #sample-status {
   margin-left: 0.4rem;
-  color: #52686a;
+  color: var(--kokoro-muted);
   font-size: 0.875rem;
 }
 #passage-pane {
@@ -165,9 +154,9 @@ h1 {
   min-height: 12rem;
   overflow-y: auto;
   padding: clamp(1.25rem, 3vw, 2.5rem);
-  border: 1px solid #d8e2e2;
+  border: 1px solid var(--kokoro-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--kokoro-surface);
 }
 #passage-text {
   max-width: 50rem;
@@ -183,17 +172,17 @@ h1 {
   border-radius: 2px;
 }
 [data-sentence-index]:hover {
-  background: #edf5f3;
+  background: var(--kokoro-hover);
 }
 [data-sentence-index].speaking {
-  background: #ffe39a;
-  color: #17252c;
-  text-decoration: underline 2px #995200;
+  background: var(--kokoro-speaking-bg);
+  color: var(--kokoro-speaking-text);
+  text-decoration: underline 2px var(--kokoro-speaking-line);
 }
 [data-sentence-index].paused {
-  background: #dce8ee;
-  color: #17252c;
-  text-decoration: underline dotted 2px #466674;
+  background: var(--kokoro-paused-bg);
+  color: var(--kokoro-paused-text);
+  text-decoration: underline dotted 2px var(--kokoro-paused-line);
 }
 .edit-label {
   max-width: 50rem;
@@ -208,7 +197,7 @@ h1 {
   font-weight: 400;
 }
 .hint {
-  color: #6c7e7f;
+  color: var(--kokoro-muted);
   font-size: 0.8rem;
   margin-top: 0.75rem;
 }
@@ -219,7 +208,7 @@ h1 {
   }
   #settings-panel {
     border-right: 0;
-    border-bottom: 1px solid #d8e2e2;
+    border-bottom: 1px solid var(--kokoro-border);
     padding: 1.25rem;
   }
   .brand {

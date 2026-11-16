@@ -66,7 +66,7 @@ Esbuild compiles the Svelte UI with the compiler's DOM-tree fragment mode. Vites
 
 ## Read and interact
 
-The extension opens its settings page when first installed.
+The extension opens its settings page when first installed. The reading workspace and page controls use a dark theme.
 Select a passage across ordinary page text and activate Kokoro with the toolbar action, Alt+Shift+K, or the “Read selection with Kokoro” context menu.
 Press Play in the compact reader bar.
 The selected text is split into sentences, and only the current sentence is highlighted while audio plays.

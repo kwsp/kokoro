@@ -311,3 +311,7 @@ The options page sends editable sample text and validated current settings throu
 ## Standalone reading workspace
 
 The options tab provides an editable passage and sentence navigation alongside settings. It uses the same sentence boundaries, reading session, audio player, buffering budget, and coordinated ownership as page reading. Play and sentence seeking capture the current form settings, including unsaved values; pause and resume retain that snapshot.
+
+## Dark interface
+
+The workspace and shadow-root reader controls share a dark palette. Page highlighting retains its high-contrast speaking and paused colors without changing host page styles.

@@ -41,6 +41,7 @@ await Promise.all(
     "manifest.json",
     "src/ui/options.html",
     "src/ui/options.css",
+    "src/ui/theme.css",
     "src/assets/icon.svg",
   ].map((path) => copyFile(path, join(outdir, path.split("/").at(-1)))),
 );

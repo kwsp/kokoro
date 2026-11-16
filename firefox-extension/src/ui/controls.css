@@ -1,14 +1,12 @@
-:host {
-  color-scheme: light;
-}
 section {
+  color-scheme: dark;
   font: 14px system-ui;
-  color: #17252c;
-  background: #fff;
-  border: 1px solid #c8d5db;
+  color: var(--kokoro-text);
+  background: var(--kokoro-surface);
+  border: 1px solid var(--kokoro-border);
   border-radius: 12px;
   padding: 12px;
-  box-shadow: 0 4px 22px #0002;
+  box-shadow: 0 4px 22px #0008;
 }
 nav {
   display: flex;
@@ -20,10 +18,24 @@ button {
   font: inherit;
   padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid #bbc9ce;
-  background: #f5f9fa;
+  border: 1px solid var(--kokoro-control-border);
+  background: var(--kokoro-raised);
   color: inherit;
   cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--kokoro-hover);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#play {
+  background: var(--kokoro-accent-bg);
+  border-color: var(--kokoro-accent-bg);
+}
+#play:hover:not(:disabled) {
+  background: var(--kokoro-accent-hover);
 }
 button.icon {
   display: inline-flex;
@@ -40,11 +52,12 @@ button.icon svg {
   transform: rotate(180deg);
 }
 button:focus-visible {
-  outline: 3px solid #238072;
+  outline: 3px solid var(--kokoro-focus);
+  outline-offset: 2px;
 }
 button[aria-pressed="true"] {
-  background: #d5eee7;
-  border-color: #238072;
+  background: var(--kokoro-active-bg);
+  border-color: var(--kokoro-accent);
 }
 p {
   margin: 8px 0 0;
@@ -56,7 +69,7 @@ p {
   max-height: min(45vh, 24em);
   overflow: auto;
   margin-bottom: 10px;
-  border-bottom: 1px solid #c8d5db;
+  border-bottom: 1px solid var(--kokoro-border);
   padding-bottom: 8px;
 }
 .advanced p {

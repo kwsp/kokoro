@@ -1,0 +1,23 @@
+:root,
+:host {
+  color-scheme: dark;
+  --kokoro-bg: #151d21;
+  --kokoro-surface: #1d282d;
+  --kokoro-raised: #26353a;
+  --kokoro-hover: #30464a;
+  --kokoro-border: #4a6267;
+  --kokoro-control-border: #6f8185;
+  --kokoro-text: #edf3f1;
+  --kokoro-muted: #b1c1c0;
+  --kokoro-accent: #8edbd0;
+  --kokoro-accent-bg: #236f68;
+  --kokoro-accent-hover: #26766e;
+  --kokoro-focus: #8ce4d6;
+  --kokoro-active-bg: #285d57;
+  --kokoro-speaking-bg: #ffe39a;
+  --kokoro-speaking-text: #17252c;
+  --kokoro-speaking-line: #995200;
+  --kokoro-paused-bg: #dce8ee;
+  --kokoro-paused-text: #17252c;
+  --kokoro-paused-line: #466674;
+}

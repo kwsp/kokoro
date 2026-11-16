@@ -1,3 +1,4 @@
+import themeCss from "./theme.css?raw";
 import controlsCss from "./controls.css?raw";
 import { flushSync, mount, unmount } from "svelte";
 import Controls from "./Controls.svelte";
@@ -20,7 +21,7 @@ export function createControls(actions: {
     "all:initial;position:fixed;bottom:16px;right:16px;z-index:2147483647;max-width:calc(100vw - 32px)";
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
-  style.textContent = controlsCss;
+  style.textContent = `${themeCss}\n${controlsCss}`;
   shadow.append(style);
   const controls = mount(Controls, { target: shadow, props: { actions } });
   document.documentElement.append(host);
