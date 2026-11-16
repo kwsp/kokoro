@@ -169,10 +169,12 @@ export function rangesForOffsets(
   return ranges;
 }
 
-export function segmentMappedText(mapped: MappedText): ReadingSegment[] {
-  const segments: ReadingSegment[] = [];
+export function sentenceOffsets(
+  text: string,
+): { start: number; end: number }[] {
+  const segments: { start: number; end: number }[] = [];
   const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
-  const sentences = segmenter.segment(mapped.text)[Symbol.iterator]();
+  const sentences = segmenter.segment(text)[Symbol.iterator]();
   let current = sentences.next();
   while (!current.done) {
     let sentence = current.value;
@@ -193,17 +195,17 @@ export function segmentMappedText(mapped: MappedText): ReadingSegment[] {
       current = sentences.next();
     }
     while (start < end) {
-      while (start < end && /\s/u.test(mapped.text[start]!)) start++;
+      while (start < end && /\s/u.test(text[start]!)) start++;
       if (start === end) break;
       let length = 0;
       let points = 0;
-      for (const point of mapped.text.slice(start, end)) {
+      for (const point of text.slice(start, end)) {
         if (points === MAX_SEGMENT_CODEPOINTS) break;
         length += point.length;
         points++;
       }
       if (start + length < end) {
-        const prefix = mapped.text.slice(start, start + length);
+        const prefix = text.slice(start, start + length);
         const boundary = Math.max(
           prefix.lastIndexOf(" "),
           prefix.lastIndexOf(";"),
@@ -212,19 +214,28 @@ export function segmentMappedText(mapped: MappedText): ReadingSegment[] {
         if (boundary >= length / 2) length = boundary + 1;
       }
       let stop = start + length;
-      while (stop > start && /\s/u.test(mapped.text[stop - 1]!)) stop--;
-      const ranges = rangesForOffsets(mapped, start, stop);
-      const first = ranges[0]?.startContainer;
-      if (first)
-        segments.push({
-          text: mapped.text.slice(start, stop),
-          ranges,
-          block: blockFor(first as Text),
-        });
+      while (stop > start && /\s/u.test(text[stop - 1]!)) stop--;
+      segments.push({ start, end: stop });
       start += length;
     }
   }
   return segments;
+}
+
+export function segmentMappedText(mapped: MappedText): ReadingSegment[] {
+  return sentenceOffsets(mapped.text).flatMap(({ start, end }) => {
+    const ranges = rangesForOffsets(mapped, start, end);
+    const first = ranges[0]?.startContainer;
+    return first
+      ? [
+          {
+            text: mapped.text.slice(start, end),
+            ranges,
+            block: blockFor(first as Text),
+          },
+        ]
+      : [];
+  });
 }
 
 export function captureSelection(selection: Selection | null): Range[] {

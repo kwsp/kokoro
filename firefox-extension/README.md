@@ -35,7 +35,7 @@ npm run build
 1. Open `about:debugging#/runtime/this-firefox` in Firefox.
 2. Choose **Load Temporary Add-on**, then select this directory's `dist/manifest.json`.
 3. In the extension settings, enter the server address and the same local token used above.
-4. Use **Test connection** to confirm access and refresh available voices. Choose one from **Available voices** or enter a voice manually, set the speed, then save. Saved credentials load the voice list automatically when you reopen settings. Edit the sample text and use **Play sample** to hear the current fields before saving; **Stop** ends playback.
+4. Use **Test connection** to confirm access and refresh available voices. Choose one from **Available voices** or enter a voice manually, set the speed, then save. Saved credentials load the voice list automatically when you reopen settings. In the reading workspace, use **Edit text** to change the passage, then **Done**. Play, pause, resume or stop reading, or select a sentence to read from that point. Playback uses the current fields without requiring a save.
 5. On an ordinary webpage, click Kokoro in Firefox's Extensions menu or use **Alt+Shift+K**, then press **Play** in the page bar.
 
 Pin Kokoro to the toolbar from Firefox's Extensions menu if you want one-click access.

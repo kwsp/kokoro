@@ -137,7 +137,7 @@ export class ReadingSession {
   }
 
   constructor(
-    private segments: readonly ReadingSegment[],
+    private segments: readonly Pick<ReadingSegment, "text">[],
     private audio: AudioAdapter,
     private transport: SpeechTransport,
     private changed: (snapshot: Snapshot) => void,
@@ -182,7 +182,7 @@ export class ReadingSession {
       this.leaseId = undefined;
     }
   }
-  replaceSegments(segments: readonly ReadingSegment[]) {
+  replaceSegments(segments: readonly Pick<ReadingSegment, "text">[]) {
     this.stop();
     this.segments = segments;
     this.publish("ready");

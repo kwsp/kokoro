@@ -186,13 +186,23 @@ browser.runtime.onConnect.addListener((port) => {
         } else if (
           value.type === "speech:generate" &&
           identifier(value.requestId) &&
-          typeof value.text === "string"
+          typeof value.text === "string" &&
+          Number.isInteger(value.maxBytes) &&
+          Number(value.maxBytes) >= 1 &&
+          Number(value.maxBytes) <= MAX_AUDIO_BYTES
         ) {
           const settings = validateSettings(value.settings);
           const audio = await coordinator.run(
             owner,
             value.requestId,
-            (signal) => fetchSpeech(settings, value.text as string, signal),
+            (signal) =>
+              fetchSpeech(
+                settings,
+                value.text as string,
+                signal,
+                fetch,
+                Number(value.maxBytes),
+              ),
           );
           port.postMessage({ callId, ok: true, audio });
         }

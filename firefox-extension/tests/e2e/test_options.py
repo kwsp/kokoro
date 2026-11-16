@@ -47,15 +47,17 @@ def test_voice_selection_restores_and_reports_rejected_token(configured, server)
     assert server.history[-1]["status"] == 401
 
 
-def test_sample_uses_unsaved_fields_and_can_stop(configured, server):
+def test_workspace_edits_seeks_and_uses_unsaved_settings(configured, server):
     driver = configured
     wait = WebDriverWait(driver, 10)
+    assert driver.find_element(By.ID, "passage-text").text.startswith(
+        "The Rainbow Passage"
+    )
+    driver.find_element(By.ID, "edit-text").click()
     sample = driver.find_element(By.ID, "sample-text")
-    text = sample.get_attribute("value")
-    assert text.startswith("The Rainbow Passage\nWhen the sunlight strikes raindrops")
-    assert text.endswith("with little or no green or blue.")
     sample.clear()
-    sample.send_keys("An editable sample.")
+    sample.send_keys("First sentence. Second sentence. Third sentence.")
+    driver.find_element(By.ID, "edit-text").click()
     voice = driver.find_element(By.ID, "voice")
     voice.clear()
     voice.send_keys("af_bella")
@@ -63,18 +65,19 @@ def test_sample_uses_unsaved_fields_and_can_stop(configured, server):
     speed.clear()
     speed.send_keys("1.5")
     gate = server.queue(delayed=True)
-    driver.find_element(By.ID, "play-sample").click()
-    wait.until(lambda _: len(server.requests) == 1)
-    assert server.requests[0]["input"] == "An editable sample."
+    driver.find_element(By.CSS_SELECTOR, '[data-sentence-index="1"]').click()
+    wait.until(lambda _: len(server.requests) >= 1)
+    assert server.requests[0]["input"] == "Second sentence."
     assert server.requests[0]["voice"] == "af_bella"
     assert server.requests[0]["speed"] == 1.5
+    driver.find_element(By.ID, "play-sample").click()
+    assert driver.find_element(By.ID, "sample-status").text == "Paused"
     driver.find_element(By.ID, "stop-sample").click()
-    assert driver.find_element(By.ID, "sample-status").text == "Sample stopped."
+    assert driver.find_element(By.ID, "sample-status").text == "Ready"
     gate.set()
-    assert driver.find_element(By.ID, "play-sample").is_enabled()
 
 
-def test_sample_reports_rejected_token(configured):
+def test_workspace_reports_rejected_token(configured):
     driver = configured
     token = driver.find_element(By.ID, "token")
     token.clear()

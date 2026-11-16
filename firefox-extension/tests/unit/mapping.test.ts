@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   captureSelection,
+  sentenceOffsets,
   segmentsFromRanges,
   MAX_SEGMENT_CODEPOINTS,
 } from "../../src/reading/mapping";
@@ -21,6 +22,19 @@ function read(html: string) {
 function sourceText(segment: ReturnType<typeof read>[number]) {
   return segment.ranges.map((range) => range.toString()).join("");
 }
+
+describe("sentence offsets", () => {
+  it("preserves UTF-16 boundaries and whitespace for standalone text", () => {
+    const text = "  Dr. Chen sees 😀.\nNext sentence!  ";
+    const offsets = sentenceOffsets(text);
+    expect(offsets.map(({ start, end }) => text.slice(start, end))).toEqual([
+      "Dr. Chen sees 😀.",
+      "Next sentence!",
+    ]);
+    expect(offsets[0]!.start).toBe(2);
+    expect(text.slice(offsets[0]!.end, offsets[1]!.start)).toBe("\n");
+  });
+});
 
 describe("selection source mapping", () => {
   it.each(["Mr", "Mrs", "Ms", "Dr", "Prof"])(

@@ -307,3 +307,7 @@ The settings page loads available voices after restoring saved credentials and r
 ## Settings voice preview
 
 The options page sends editable sample text and validated current settings through an options-only port to the shared speech coordinator. Preview and page reading hand off ownership and serialize synthesis; stopping or closing settings releases the preview.
+
+## Standalone reading workspace
+
+The options tab provides an editable passage and sentence navigation alongside settings. It uses the same sentence boundaries, reading session, audio player, buffering budget, and coordinated ownership as page reading. Play and sentence seeking capture the current form settings, including unsaved values; pause and resume retain that snapshot.
