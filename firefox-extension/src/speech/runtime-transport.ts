@@ -1,4 +1,5 @@
 import type { SpeechTransport } from "./session";
+import { decodeAudioMessage } from "./audio-message";
 
 export function createRuntimeTransport(sessionId: string): SpeechTransport {
   return {
@@ -24,12 +25,12 @@ export function createRuntimeTransport(sessionId: string): SpeechTransport {
         sessionId,
         leaseId,
         maxBytes,
-      })) as { ok: boolean; audio?: ArrayBuffer; error?: string };
-      if (!result?.ok || !(result.audio instanceof ArrayBuffer))
+      })) as { ok: boolean; audio?: unknown; error?: string };
+      if (!result?.ok)
         throw new Error(
           result?.error ?? "No audio received. Retry this sentence.",
         );
-      return result.audio;
+      return decodeAudioMessage(result.audio, maxBytes);
     },
     cancel(requestId, leaseId) {
       void browser.runtime

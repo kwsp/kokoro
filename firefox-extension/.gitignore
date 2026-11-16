@@ -3,3 +3,5 @@ dist/
 artifacts/
 test-results/
 __pycache__/
+
+dist-safari/

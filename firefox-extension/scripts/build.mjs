@@ -4,7 +4,9 @@ import { mkdir, copyFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
-const outdir = process.env.KOKORO_EXTENSION_OUT_DIR ?? "dist";
+const safari = process.argv.includes("--safari");
+const outdir =
+  process.env.KOKORO_EXTENSION_OUT_DIR ?? (safari ? "dist-safari" : "dist");
 const testFallback = process.env.KOKORO_TEST_HIGHLIGHT_FALLBACK === "1";
 await mkdir(outdir, { recursive: true });
 await build({
@@ -31,18 +33,23 @@ await build({
   ],
   alias: { "@mozilla/readability": "./src/reading/readability-vendor.ts" },
   outdir,
-  target: "firefox142",
+  target: safari ? "safari16.4" : "firefox142",
   format: "iife",
   // Only the isolated fallback E2E build simulates an unavailable browser API.
-  define: testFallback ? { Highlight: "undefined" } : {},
+  define: {
+    __SAFARI__: String(safari),
+    ...(testFallback ? { Highlight: "undefined" } : {}),
+  },
 });
 await Promise.all(
-  [
-    "manifest.json",
-    "src/ui/options.html",
-    "src/ui/options.css",
-    "src/assets/icon.svg",
-  ].map((path) => copyFile(path, join(outdir, path.split("/").at(-1)))),
+  ["src/ui/options.html", "src/ui/options.css", "src/assets/icon.svg"].map(
+    (path) => copyFile(path, join(outdir, path.split("/").at(-1))),
+  ),
+);
+if (safari) await copyFile("src/assets/icon.png", join(outdir, "icon.png"));
+await copyFile(
+  safari ? "manifest.safari.json" : "manifest.json",
+  join(outdir, "manifest.json"),
 );
 await copyFile("../LICENSE", join(outdir, "LICENSE.txt"));
 await copyFile(

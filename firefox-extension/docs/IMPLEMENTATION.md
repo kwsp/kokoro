@@ -311,3 +311,11 @@ The options page sends editable sample text and validated current settings throu
 ## Standalone reading workspace
 
 The options tab provides an editable passage and sentence navigation alongside settings. It uses the same sentence boundaries, reading session, audio player, buffering budget, and coordinated ownership as page reading. Play and sentence seeking capture the current form settings, including unsaved values; pause and resume retain that snapshot.
+
+### Experimental Safari target
+
+The shared build can emit a Safari MV2 manifest and Safari-targeted JavaScript using `npm run build:safari`. Safari's background page is nonpersistent, and its build omits the Firefox selection context menu. The existing coordinator keeps ownership and synthesis state in background memory; suspension or restart can discard that state. Foreground playback and recovery from background suspension still need device or simulator verification before this target can be considered reliable.
+
+Safari extension messages serialize generated WAV bytes as base64; the receiving page validates the encoded size against its remaining audio budget before decoding. Firefox continues to use binary `ArrayBuffer` messages. The same bridge covers the settings-page voice preview.
+
+The Safari manifest uses `src/assets/icon.png`, a 512-pixel raster of `icon.svg`, because the Safari packager copies the manifest icon to the containing app as `Icon.png`. Regenerate it after changing the SVG with `rsvg-convert -w 512 -h 512 src/assets/icon.svg -o src/assets/icon.png` from the extension directory.

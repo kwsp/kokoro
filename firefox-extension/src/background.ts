@@ -1,6 +1,9 @@
+declare const __SAFARI__: boolean;
+
 import { loadSettings, validateSettings } from "./settings";
 import { fetchSpeech, MAX_AUDIO_BYTES } from "./speech/transport";
 import { SpeechCoordinator, type Owner } from "./speech/coordinator";
+import { encodeAudioMessage } from "./speech/audio-message";
 
 const previewPorts = new Map<string, browser.runtime.Port>();
 const previewNotices = new Map<browser.runtime.Port, Map<string, () => void>>();
@@ -51,7 +54,7 @@ async function activate(tab: browser.tabs.Tab, selectionOnly = false) {
   } catch {
     await browser.browserAction.setTitle({
       tabId: tab.id,
-      title: "Kokoro cannot read this Firefox page. Try an ordinary webpage.",
+      title: "Kokoro cannot read this page. Try an ordinary webpage.",
     });
     await browser.browserAction.setBadgeText({ tabId: tab.id, text: "!" });
   }
@@ -60,14 +63,16 @@ async function activate(tab: browser.tabs.Tab, selectionOnly = false) {
 browser.browserAction.onClicked.addListener((tab) => {
   void activate(tab);
 });
-browser.menus.create({
-  id: "kokoro-selection",
-  title: "Read selection with Kokoro",
-  contexts: ["selection"],
-});
-browser.menus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "kokoro-selection" && tab) void activate(tab, true);
-});
+if (typeof __SAFARI__ === "undefined" || !__SAFARI__) {
+  browser.menus.create({
+    id: "kokoro-selection",
+    title: "Read selection with Kokoro",
+    contexts: ["selection"],
+  });
+  browser.menus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "kokoro-selection" && tab) void activate(tab, true);
+  });
+}
 browser.runtime.onInstalled.addListener(() => {
   void browser.runtime.openOptionsPage();
 });
@@ -126,7 +131,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
           );
         },
       );
-      return { ok: true, audio };
+      return { ok: true, audio: encodeAudioMessage(audio) };
     } catch (error) {
       return {
         ok: false,
@@ -204,7 +209,11 @@ browser.runtime.onConnect.addListener((port) => {
                 Number(value.maxBytes),
               ),
           );
-          port.postMessage({ callId, ok: true, audio });
+          port.postMessage({
+            callId,
+            ok: true,
+            audio: encodeAudioMessage(audio),
+          });
         }
       } catch (error) {
         try {

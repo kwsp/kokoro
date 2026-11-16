@@ -217,3 +217,26 @@ The reader's Advanced button opens a diagnostic panel above the playback control
 It reports prepared future audio, the current preparation stage, recent preparation time, and gaps between sentences.
 The panel starts closed each time the reader is activated.
 Use **Download debug logs** in this panel after reproducing a problem; the JSON contains up to 500 recent events from the current reader session, including playback state and source-change summaries, but no page text, URLs, or backend tokens. Closing the reader discards the log.
+
+### Experimental iOS Safari build
+
+From `firefox-extension/`, build the shared source and generate an iOS Xcode project:
+
+```bash
+npm run build:safari
+xcrun safari-web-extension-packager --project-location /tmp/kokoro-safari-xcode --app-name 'Kokoro Reader' --bundle-identifier local.kokoro.reader --swift --ios-only --copy-resources --no-open --no-prompt "$PWD/dist-safari"
+```
+
+The generated project is at `/tmp/kokoro-safari-xcode/Kokoro Reader/Kokoro Reader.xcodeproj`. Its copied extension resources are a snapshot: rebuild and regenerate the project when the extension changes. Choose a new project location or deliberately replace the previous generated project; do not overwrite a project with signing changes you need to keep.
+
+To install on an iPhone or iPad:
+
+1. Open the generated project in Xcode and sign in to your Apple Account in Xcode settings. Connect the device by USB, unlock it, and complete the device pairing and trust prompts. If needed, enable **Developer Mode** in the device's Settings > Privacy & Security, restart, and confirm. See Apple's [device running and signing guide](https://developer.apple.com/documentation/xcode/building-and-running-an-app) and [Developer Mode instructions](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device).
+2. In **Signing & Capabilities**, enable **Automatically manage signing** for both the app and extension targets and select the same team. Assign a unique app bundle identifier for your team and an extension identifier prefixed by the app identifier, such as `com.example.kokororeader` and `com.example.kokororeader.Extension`. Check both targets: the generated identifiers can be inconsistent. Let Xcode register the device and provision both targets.
+3. Select the connected device as the run destination and choose **Product > Run**. Launch the installed Kokoro Reader app once. On the device, open **Settings > Apps > Safari > Extensions**, enable Kokoro Reader, and grant the requested website access when using the extension. On older iOS versions Safari may appear directly under Settings. Open an ordinary webpage in Safari, invoke Kokoro Reader from Safari's extension controls, and keep the page and screen in the foreground while reading.
+
+A free Xcode Personal Team can install on a personal device, but its provisioning profiles expire seven days after issuance; rebuild and reinstall after expiry. See [Apple's account limits](https://developer.apple.com/help/account/basics/about-your-developer-account). For distribution through TestFlight, enroll in the Apple Developer Program and upload a build to App Store Connect. Each TestFlight build is available for up to 90 days; see [Apple's TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/). These are separate installation paths, and neither has been validated on a physical device for this project.
+
+**Physical-device backend limitation:** the current settings accept only HTTP loopback URLs. On an iPhone or iPad, `127.0.0.1` points to that device, not the Mac running Kokoro, so a normal Mac-hosted server is unreachable. A future device-ready connection needs an authenticated HTTPS backend reachable from the device, appropriate Safari host permissions, and corresponding settings and server changes. This is not implemented. The simulator can reach a Mac loopback server after granting the local network permission.
+
+The Safari target remains experimental. Its nonpersistent background can lose the in-memory coordinator on suspension, and recovery needs further testing. The Safari build omits the Firefox selection context menu; the reader toolbar still offers selection and whole-page reading.

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:safari": "node scripts/build.mjs --safari",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint src tests/unit scripts",
     "format": "prettier --plugin prettier-plugin-svelte --write src tests/unit scripts *.json *.mjs",
