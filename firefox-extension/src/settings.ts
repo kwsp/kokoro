@@ -12,19 +12,6 @@ export const defaults: Settings = {
   speed: 1,
 };
 
-function isPrivateHttpHost(hostname: string): boolean {
-  if (hostname === "localhost") return true;
-  const octets = hostname.split(".").map(Number);
-  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part)))
-    return false;
-  return (
-    octets[0] === 127 ||
-    octets[0] === 10 ||
-    (octets[0] === 172 && octets[1]! >= 16 && octets[1]! <= 31) ||
-    (octets[0] === 192 && octets[1] === 168)
-  );
-}
-
 export function validateSettings(value: unknown): Settings {
   if (!value || typeof value !== "object") throw new Error("Invalid settings.");
   const candidate = value as Record<string, unknown>;
@@ -35,8 +22,7 @@ export function validateSettings(value: unknown): Settings {
     throw new Error("Enter a valid server URL.");
   }
   if (
-    (url.protocol !== "https:" &&
-      !(url.protocol === "http:" && isPrivateHttpHost(url.hostname))) ||
+    !["http:", "https:"].includes(url.protocol) ||
     url.username ||
     url.password ||
     url.search ||
@@ -44,7 +30,7 @@ export function validateSettings(value: unknown): Settings {
     url.pathname !== "/"
   ) {
     throw new Error(
-      "Use HTTPS, or HTTP with a loopback or private LAN IPv4 address (for example http://192.168.1.10:8880).",
+      "Use an HTTP or HTTPS server URL without credentials, a path, query, or fragment.",
     );
   }
   if (typeof candidate.token !== "string" || !candidate.token.trim())

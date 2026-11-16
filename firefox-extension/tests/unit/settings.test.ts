@@ -19,18 +19,17 @@ describe("server settings", () => {
     "http://192.168.1.42:8880",
     "http://10.0.0.4",
     "http://172.31.0.2",
+    "http://sadhamster2.local:8880",
+    "http://example.com:8880",
+    "http://172.32.0.2",
     "https://speech.example.com",
-  ])("accepts a LAN or HTTPS endpoint %s", (baseUrl) => {
+  ])("accepts an HTTP or HTTPS endpoint %s", (baseUrl) => {
     expect(
       validateSettings({ ...defaults, token: "secret", baseUrl }).baseUrl,
     ).toBe(baseUrl);
   });
   it.each([
-    "http://example.com",
-    "http://172.32.0.2",
-    "http://192.169.1.2",
     "ftp://192.168.1.2",
-    "http://127.0.0.1.evil.test",
     "http://user@localhost",
     "http://localhost/path",
     "http://localhost?x=1",

@@ -2,7 +2,7 @@
 
 ## LAN server connection
 
-The settings validator accepts HTTP loopback and private IPv4 addresses, plus HTTPS URLs. Firefox requests host access for the configured server when the user saves settings or tests the connection. The server CLI can bind to `0.0.0.0` and accept any Host header; its default remains loopback. The shared bearer token still protects speech and discovery routes. See the extension and server READMEs for LAN setup and firewall guidance.
+The settings validator accepts HTTP and HTTPS server URLs without embedded credentials, paths, queries, or fragments. Firefox requests host access for the configured server when the user saves settings or tests the connection. The server CLI can bind to `0.0.0.0` and accept any Host header; its default remains loopback. The shared bearer token still protects speech and discovery routes. See the extension and server READMEs for LAN setup and firewall guidance.
 
 The approved design is in [PLAN.md](PLAN.md).
 Implement the five steps below in order, with a subagent report and review before each step is committed.
