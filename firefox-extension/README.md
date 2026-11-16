@@ -18,7 +18,7 @@ python -m kokoro_server
 ```
 
 The default address is `http://127.0.0.1:8880`.
-For a server on another machine on a trusted LAN, start it with `--host 0.0.0.0 --allowed-host SERVER_LAN_IP` and enter `http://SERVER_LAN_IP:8880` in the extension settings. The browser will ask for access to that server host when you save or test the connection. See the [server guide](../kokoro_server/README.md) for firewall and HTTPS guidance.
+For a server on another machine on a trusted LAN, start it with `--host 0.0.0.0` and enter `http://SERVER_LAN_IP:8880` in the extension settings. The browser will ask for access to that server host when you save or test the connection. See the [server guide](../kokoro_server/README.md) for firewall and HTTPS guidance.
 Wait for server startup to finish, and keep that terminal running while you use the extension.
 The default device is automatically MPS on supported Apple Silicon or CPU elsewhere; `--device cpu` forces CPU.
 See [server guide](../kokoro_server/README.md) for setup, device selection, and endpoint details.

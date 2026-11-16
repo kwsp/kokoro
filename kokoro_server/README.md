@@ -39,13 +39,13 @@ python -m kokoro_server
 
 The installed `kokoro-server` command is equivalent.
 The default address is `http://127.0.0.1:8880`; use `--port` to change it.
-For a server on another machine on a trusted LAN, bind to all network interfaces and allow the exact IP address clients use:
+For a server on another machine on a trusted LAN, bind to all network interfaces:
 
 ```bash
-python -m kokoro_server --host 0.0.0.0 --allowed-host 192.168.1.42
+python -m kokoro_server --host 0.0.0.0
 ```
 
-Replace `192.168.1.42` with the server machine's LAN IP. Keep the shared token private and restrict port 8880 to your LAN with the machine's firewall. HTTP sends the token and page text without encryption, so use an HTTPS reverse proxy for access outside a trusted LAN. A client connecting to the proxy must use its hostname in `--allowed-host`.
+Use the server machine's LAN IP in the client URL. With this bind option, the server accepts any HTTP Host header; protected routes still require the shared token. Keep the token private and restrict port 8880 to your LAN with the machine's firewall. HTTP sends the token and page text without encryption, so use an HTTPS reverse proxy for access outside a trusted LAN.
 The default `--device auto` selects MPS on an Apple Silicon Mac with GPU access, and CPU elsewhere.
 Use `--device cpu` to force CPU or `--device mps` to require MPS; explicitly requesting unavailable MPS fails with an actionable startup error.
 `GET /health` reports the selected device.
@@ -120,7 +120,7 @@ The local default format is WAV, unlike OpenAI's MP3 default, so clients should 
 | Unsupported requests | Unknown fields, style instructions, foreign model IDs, arbitrary voice paths, and non-English voices are rejected. |
 
 The byte limits and deadlines can be configured through `create_app(..., service_options=...)` when embedding the app.
-The CLI exposes host, allowed host, port, and device.
+The CLI exposes host, port, and device.
 
 The server runs one Uvicorn worker and one dedicated synthesis thread.
 PyTorch can still use multiple CPU threads inside that model operation; one active request does not mean one CPU core.

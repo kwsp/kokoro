@@ -137,16 +137,21 @@ def test_bad_json_media_type_and_host(client):
     assert client.get("/health", headers={"Host": "evil.example"}).status_code == 400
 
 
-def test_explicit_lan_host_is_accepted():
+def test_lan_bind_accepts_any_host_but_still_requires_token():
     app = create_app(
         TOKEN,
         engine_factory=Engine,
-        allowed_hosts=("127.0.0.1", "localhost", "192.168.1.42"),
+        allowed_hosts=("*",),
     )
     with TestClient(app, base_url="http://192.168.1.42") as client:
         assert client.get("/health").status_code == 200
+        assert client.get("/health", headers={"Host": "other.lan"}).status_code == 200
         assert (
-            client.get("/health", headers={"Host": "evil.example"}).status_code == 400
+            client.get("/v1/voices", headers={"Host": "other.lan"}).status_code == 401
+        )
+        assert (
+            client.get("/v1/voices", headers={**AUTH, "Host": "other.lan"}).status_code
+            == 200
         )
 
 

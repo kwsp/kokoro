@@ -34,14 +34,14 @@ def test_cli_requires_token(monkeypatch, capsys):
     assert "KOKORO_API_KEY" in capsys.readouterr().err
 
 
-def test_cli_allows_explicit_lan_host(monkeypatch):
+def test_cli_allows_any_host_header_on_lan_bind(monkeypatch):
     monkeypatch.setenv("KOKORO_API_KEY", "test-key")
     factory = Mock(return_value=object())
     run = Mock()
     monkeypatch.setattr("kokoro_server.app.create_app", factory)
     monkeypatch.setattr("uvicorn.run", run)
-    main(["--host", "0.0.0.0", "--allowed-host", "192.168.1.42"])
-    assert "192.168.1.42" in factory.call_args.kwargs["allowed_hosts"]
+    main(["--host", "0.0.0.0"])
+    assert factory.call_args.kwargs["allowed_hosts"] == ("*",)
     assert run.call_args.kwargs["host"] == "0.0.0.0"
 
 
@@ -63,8 +63,7 @@ def test_cli_passes_device_to_engine(monkeypatch, device):
     [
         ["--port", "0"],
         ["--port", "65536"],
-        ["--host", "0.0.0.0"],
-        ["--allowed-host", "example.com/path"],
+        ["--allowed-host", "example.com"],
         ["--device", "cuda"],
     ],
 )
