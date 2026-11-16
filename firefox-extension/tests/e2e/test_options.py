@@ -5,6 +5,24 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 
 
+def test_narrow_settings_and_reader_stack_in_one_column(configured, tmp_path):
+    driver = configured
+    driver.set_window_size(390, 844)
+    layout = driver.execute_script(
+        """const settings=document.getElementById('settings-panel').getBoundingClientRect();
+        const reader=document.getElementById('workspace').getBoundingClientRect();
+        return {settingsBottom:settings.bottom, readerTop:reader.top,
+          settingsWidth:settings.width, readerWidth:reader.width,
+          viewportWidth:document.documentElement.clientWidth,
+          scrollWidth:document.documentElement.scrollWidth};"""
+    )
+    assert layout["readerTop"] >= layout["settingsBottom"]
+    assert layout["settingsWidth"] <= layout["viewportWidth"]
+    assert layout["readerWidth"] <= layout["viewportWidth"]
+    assert layout["scrollWidth"] <= layout["viewportWidth"]
+    driver.save_screenshot(str(tmp_path / "narrow-settings.png"))
+
+
 def test_voice_selection_restores_and_reports_rejected_token(configured, server):
     driver = configured
     wait = WebDriverWait(driver, 10)

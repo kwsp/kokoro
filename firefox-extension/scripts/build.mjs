@@ -42,9 +42,12 @@ await build({
   },
 });
 await Promise.all(
-  ["src/ui/options.html", "src/ui/options.css", "src/assets/icon.svg"].map(
-    (path) => copyFile(path, join(outdir, path.split("/").at(-1))),
-  ),
+  [
+    "src/ui/options.html",
+    "src/ui/options.css",
+    "src/ui/theme.css",
+    "src/assets/icon.svg",
+  ].map((path) => copyFile(path, join(outdir, path.split("/").at(-1)))),
 );
 if (safari) await copyFile("src/assets/icon.png", join(outdir, "icon.png"));
 await copyFile(

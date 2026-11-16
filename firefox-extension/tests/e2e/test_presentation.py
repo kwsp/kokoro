@@ -28,7 +28,7 @@ def test_control_bar_fits_viewport(configured, server, tmp_path, width, zoom, da
     bounds = driver.execute_script(
         """const h=document.getElementById('kokoro-reader-controls');
         const r=h.getBoundingClientRect();
-        const buttons=Array.from(h.shadowRoot.querySelectorAll('button'), b=>{
+        const buttons=Array.from(h.shadowRoot.querySelectorAll('nav button'), b=>{
           const q=b.getBoundingClientRect();return {left:q.left,right:q.right,top:q.top,bottom:q.bottom};});
         return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,buttons};"""
     )

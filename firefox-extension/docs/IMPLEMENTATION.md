@@ -323,3 +323,8 @@ The shared build can emit a Safari MV2 manifest and Safari-targeted JavaScript u
 Safari extension messages serialize generated WAV bytes as base64; the receiving page validates the encoded size against its remaining audio budget before decoding. Firefox continues to use binary `ArrayBuffer` messages. The same bridge covers the settings-page voice preview.
 
 The Safari manifest uses `src/assets/icon.png`, a 512-pixel raster of `icon.svg`, because the Safari packager copies the manifest icon to the containing app as `Icon.png`. Regenerate it after changing the SVG with `rsvg-convert -w 512 -h 512 src/assets/icon.svg -o src/assets/icon.png` from the extension directory.
+
+## Dark interface
+
+The workspace and shadow-root reader controls share a dark palette. Page highlighting retains its high-contrast speaking and paused colors without changing host page styles.
+The settings page declares the device viewport width so its narrow layout places settings above the reading workspace on mobile screens.
