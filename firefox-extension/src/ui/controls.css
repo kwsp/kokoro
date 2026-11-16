@@ -32,7 +32,7 @@ button:disabled {
 }
 #play {
   background: var(--kokoro-accent-bg);
-  border-color: var(--kokoro-accent-bg);
+  border-color: var(--kokoro-accent);
 }
 #play:hover:not(:disabled) {
   background: var(--kokoro-accent-hover);

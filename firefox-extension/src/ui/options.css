@@ -22,7 +22,7 @@ body {
   padding: 2rem 1.5rem;
 }
 .brand {
-  color: var(--kokoro-accent);
+  color: var(--kokoro-focus);
   font-weight: 750;
   font-size: 1.25rem;
   margin-bottom: 2.25rem;
@@ -137,7 +137,7 @@ h1 {
 .primary {
   color: var(--kokoro-text);
   background: var(--kokoro-accent-bg);
-  border-color: var(--kokoro-accent-bg);
+  border-color: var(--kokoro-accent);
   min-width: 5.5rem;
 }
 .primary:hover:not(:disabled) {
