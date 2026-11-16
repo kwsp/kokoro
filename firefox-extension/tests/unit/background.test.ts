@@ -18,6 +18,7 @@ let listener: (
   message: unknown,
   sender: browser.runtime.MessageSender,
 ) => Promise<unknown> | undefined;
+let connect: (port: browser.runtime.Port) => void;
 let settingsChanged: (
   changes: Record<string, browser.storage.StorageChange>,
   area: string,
@@ -35,6 +36,12 @@ beforeEach(async () => {
         },
       },
       onInstalled: { addListener: vi.fn() },
+      onConnect: {
+        addListener: (handler: typeof connect) => {
+          connect = handler;
+        },
+      },
+      getURL: (path: string) => `moz-extension://own/${path}`,
       openOptionsPage: vi.fn().mockResolvedValue(undefined),
     },
     browserAction: {
@@ -65,6 +72,66 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("background request routing", () => {
+  it("rejects preview ports from content scripts and other extension pages", () => {
+    for (const url of [
+      "https://example.com/",
+      "moz-extension://own/other.html",
+    ]) {
+      const disconnect = vi.fn();
+      connect({
+        name: "voice-preview",
+        sender: { ...sender, url },
+        disconnect,
+      } as unknown as browser.runtime.Port);
+      expect(disconnect).toHaveBeenCalledOnce();
+    }
+  });
+  it("waits for preview stop acknowledgement before handing ownership to a reader", async () => {
+    let receive: (value: unknown) => void = () => {};
+    const postMessage = vi.fn();
+    const port = {
+      name: "voice-preview",
+      sender: {
+        tab: { id: 2 },
+        frameId: 0,
+        url: "moz-extension://own/options.html",
+      },
+      postMessage,
+      onMessage: {
+        addListener: (handler: typeof receive) => {
+          receive = handler;
+        },
+      },
+      onDisconnect: { addListener: vi.fn() },
+    } as unknown as browser.runtime.Port;
+    connect(port);
+    receive({
+      type: "reader:claim",
+      sessionId: "preview",
+      leaseId: "p",
+      callId: "claim",
+    });
+    await vi.waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith({ callId: "claim", ok: true }),
+    );
+    let settled = false;
+    const claim = listener(
+      { type: "reader:claim", sessionId: "reader", leaseId: "r" },
+      sender,
+    )!.then(() => {
+      settled = true;
+    });
+    await vi.waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith({
+        type: "reader:stop",
+        leaseId: "p",
+      }),
+    );
+    expect(settled).toBe(false);
+    receive({ type: "notice:ack", leaseId: "p" });
+    await claim;
+    expect(settled).toBe(true);
+  });
   it("ignores an unchanged settings save and invalidates an actual settings update", async () => {
     settingsChanged(
       { settings: { oldValue: settings, newValue: { ...settings } } },

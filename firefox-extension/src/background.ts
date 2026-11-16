@@ -1,14 +1,29 @@
-import { loadSettings } from "./settings";
+import { loadSettings, validateSettings } from "./settings";
 import { fetchSpeech, MAX_AUDIO_BYTES } from "./speech/transport";
 import { SpeechCoordinator, type Owner } from "./speech/coordinator";
 
-const coordinator = new SpeechCoordinator((owner, type) =>
-  browser.tabs.sendMessage(
+const previewPorts = new Map<string, browser.runtime.Port>();
+const previewNotices = new Map<browser.runtime.Port, Map<string, () => void>>();
+const coordinator = new SpeechCoordinator((owner, type) => {
+  const port = previewPorts.get(owner.sessionId);
+  if (port) {
+    return new Promise<void>((resolve) => {
+      const notices = previewNotices.get(port)!;
+      notices.set(owner.leaseId, resolve);
+      try {
+        port.postMessage({ type, leaseId: owner.leaseId });
+      } catch {
+        notices.delete(owner.leaseId);
+        resolve();
+      }
+    });
+  }
+  return browser.tabs.sendMessage(
     owner.tabId,
     { type, sessionId: owner.sessionId, leaseId: owner.leaseId },
     { frameId: 0 },
-  ),
-);
+  );
+});
 const identifier = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0 && value.length <= 100;
 
@@ -122,6 +137,89 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
       };
     }
   })();
+});
+
+// This port is accepted only from the extension's own options document.
+browser.runtime.onConnect.addListener((port) => {
+  const sender = port.sender;
+  if (
+    port.name !== "voice-preview" ||
+    sender?.url !== browser.runtime.getURL("options.html") ||
+    sender.tab?.id === undefined ||
+    sender.frameId !== 0
+  ) {
+    port.disconnect();
+    return;
+  }
+  const tabId = sender.tab.id;
+  const notices = new Map<string, () => void>();
+  previewNotices.set(port, notices);
+  let sessionId = "";
+  port.onMessage.addListener((message: unknown) => {
+    if (!message || typeof message !== "object") return;
+    const value = message as Record<string, unknown>;
+    if (value.type === "notice:ack" && identifier(value.leaseId)) {
+      notices.get(value.leaseId)?.();
+      notices.delete(value.leaseId);
+      return;
+    }
+    if (!identifier(value.sessionId) || !identifier(value.leaseId)) return;
+    if (sessionId && sessionId !== value.sessionId) return;
+    sessionId = value.sessionId;
+    previewPorts.set(sessionId, port);
+    const owner = { tabId, sessionId, leaseId: value.leaseId };
+    if (value.type === "reader:release") {
+      coordinator.release(owner);
+      return;
+    }
+    if (value.type === "speech:cancel" && identifier(value.requestId)) {
+      coordinator.cancel(owner, value.requestId);
+      return;
+    }
+    if (!identifier(value.callId)) return;
+    const callId = value.callId;
+    void (async () => {
+      try {
+        if (value.type === "reader:claim") {
+          await coordinator.claim(owner);
+          port.postMessage({ callId, ok: true });
+        } else if (
+          value.type === "speech:generate" &&
+          identifier(value.requestId) &&
+          typeof value.text === "string"
+        ) {
+          const settings = validateSettings(value.settings);
+          const audio = await coordinator.run(
+            owner,
+            value.requestId,
+            (signal) => fetchSpeech(settings, value.text as string, signal),
+          );
+          port.postMessage({ callId, ok: true, audio });
+        }
+      } catch (error) {
+        try {
+          port.postMessage({
+            callId,
+            ok: false,
+            error:
+              error instanceof Error && error.name !== "TypeError"
+                ? error.message
+                : "Cannot reach the local speech server.",
+          });
+        } catch {
+          /* The options page has closed. */
+        }
+      }
+    })();
+  });
+  port.onDisconnect.addListener(() => {
+    if (sessionId && previewPorts.get(sessionId) === port) {
+      previewPorts.delete(sessionId);
+      coordinator.removeTab(tabId);
+    }
+    for (const resolve of notices.values()) resolve();
+    previewNotices.delete(port);
+  });
 });
 
 browser.tabs.onRemoved.addListener((tabId) => coordinator.removeTab(tabId));

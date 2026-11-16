@@ -303,3 +303,7 @@ For automatically extracted pages, the source watcher can rebind sentence ranges
 ## Available voice selection
 
 The settings page loads available voices after restoring saved credentials and refreshes them on Test connection. Selecting a voice fills the editable voice field; failed or empty discovery leaves manual entry available. Credential edits invalidate pending discovery results.
+
+## Settings voice preview
+
+The options page sends editable sample text and validated current settings through an options-only port to the shared speech coordinator. Preview and page reading hand off ownership and serialize synthesis; stopping or closing settings releases the preview.
