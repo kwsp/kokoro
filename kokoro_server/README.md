@@ -14,6 +14,15 @@ source .venv/bin/activate
 python -m pip install -e '.[server]'
 ```
 
+To install directly from GitHub with `uv`, run `uv pip install 'kokoro[server] @ git+https://github.com/kwsp/kokoro.git'`.
+
+On Linux servers where you want CPU-only inference, install the CPU build of PyTorch before the server dependencies so pip does not select a CUDA build:
+
+```bash
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -e '.[server]'
+```
+
 Prepare the model and English language resource if they are not already installed:
 
 ```bash
@@ -30,7 +39,13 @@ python -m kokoro_server
 
 The installed `kokoro-server` command is equivalent.
 The default address is `http://127.0.0.1:8880`; use `--port` to change it.
-Only loopback binding is supported.
+For a server on another machine on a trusted LAN, bind to all network interfaces and allow the exact IP address clients use:
+
+```bash
+python -m kokoro_server --host 0.0.0.0 --allowed-host 192.168.1.42
+```
+
+Replace `192.168.1.42` with the server machine's LAN IP. Keep the shared token private and restrict port 8880 to your LAN with the machine's firewall. HTTP sends the token and page text without encryption, so use an HTTPS reverse proxy for access outside a trusted LAN. A client connecting to the proxy must use its hostname in `--allowed-host`.
 The default `--device auto` selects MPS on an Apple Silicon Mac with GPU access, and CPU elsewhere.
 Use `--device cpu` to force CPU or `--device mps` to require MPS; explicitly requesting unavailable MPS fails with an actionable startup error.
 `GET /health` reports the selected device.
@@ -105,7 +120,7 @@ The local default format is WAV, unlike OpenAI's MP3 default, so clients should 
 | Unsupported requests | Unknown fields, style instructions, foreign model IDs, arbitrary voice paths, and non-English voices are rejected. |
 
 The byte limits and deadlines can be configured through `create_app(..., service_options=...)` when embedding the app.
-The CLI intentionally exposes only host, port, and device.
+The CLI exposes host, allowed host, port, and device.
 
 The server runs one Uvicorn worker and one dedicated synthesis thread.
 PyTorch can still use multiple CPU threads inside that model operation; one active request does not mean one CPU core.
@@ -126,7 +141,7 @@ Validation failures return `400`, invalid tokens `401`, oversized bodies `413`, 
 If a PCM stream fails after bytes were sent, the HTTP response ends incompletely instead of appending JSON or claiming success.
 Do not automatically replay partly consumed speech after a transport error.
 
-The server does not enable cross-origin browser access; Firefox should request it from the extension context with the required loopback host permission.
+The server does not enable cross-origin browser access; the Firefox extension requests access to the configured server host from its settings page.
 Logs include Uvicorn request status and sanitized request IDs for generation failures; page text and tokens are not intentionally logged.
 Detailed latency measurements are provided by the opt-in smoke test, not a production metrics system.
 

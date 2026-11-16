@@ -137,6 +137,19 @@ def test_bad_json_media_type_and_host(client):
     assert client.get("/health", headers={"Host": "evil.example"}).status_code == 400
 
 
+def test_explicit_lan_host_is_accepted():
+    app = create_app(
+        TOKEN,
+        engine_factory=Engine,
+        allowed_hosts=("127.0.0.1", "localhost", "192.168.1.42"),
+    )
+    with TestClient(app, base_url="http://192.168.1.42") as client:
+        assert client.get("/health").status_code == 200
+        assert (
+            client.get("/health", headers={"Host": "evil.example"}).status_code == 400
+        )
+
+
 def test_body_limit_counts_received_bytes_without_content_length():
     app = create_app(TOKEN, engine_factory=Engine, max_body_bytes=100)
     with TestClient(app, base_url="http://localhost") as client:

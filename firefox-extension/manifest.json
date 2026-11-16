@@ -19,6 +19,7 @@
     "http://127.0.0.1/*",
     "http://localhost/*"
   ],
+  "optional_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "scripts": ["background.js"],
     "persistent": true

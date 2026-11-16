@@ -12,6 +12,19 @@ export const defaults: Settings = {
   speed: 1,
 };
 
+function isPrivateHttpHost(hostname: string): boolean {
+  if (hostname === "localhost") return true;
+  const octets = hostname.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part)))
+    return false;
+  return (
+    octets[0] === 127 ||
+    octets[0] === 10 ||
+    (octets[0] === 172 && octets[1]! >= 16 && octets[1]! <= 31) ||
+    (octets[0] === 192 && octets[1] === 168)
+  );
+}
+
 export function validateSettings(value: unknown): Settings {
   if (!value || typeof value !== "object") throw new Error("Invalid settings.");
   const candidate = value as Record<string, unknown>;
@@ -19,11 +32,11 @@ export function validateSettings(value: unknown): Settings {
   try {
     url = new URL(String(candidate.baseUrl));
   } catch {
-    throw new Error("Enter a valid local server URL.");
+    throw new Error("Enter a valid server URL.");
   }
   if (
-    url.protocol !== "http:" ||
-    !["127.0.0.1", "localhost"].includes(url.hostname) ||
+    (url.protocol !== "https:" &&
+      !(url.protocol === "http:" && isPrivateHttpHost(url.hostname))) ||
     url.username ||
     url.password ||
     url.search ||
@@ -31,7 +44,7 @@ export function validateSettings(value: unknown): Settings {
     url.pathname !== "/"
   ) {
     throw new Error(
-      "Use an HTTP loopback URL, for example http://127.0.0.1:8880.",
+      "Use HTTPS, or HTTP with a loopback or private LAN IPv4 address (for example http://192.168.1.10:8880).",
     );
   }
   if (typeof candidate.token !== "string" || !candidate.token.trim())

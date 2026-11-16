@@ -1,7 +1,7 @@
 # Kokoro Firefox reader
 
 Read articles or selected text aloud with the local Kokoro server, with sentence highlighting and a compact page control bar.
-This personal-use extension sends text only to the loopback server you configure and does not require an OpenAI account.
+This personal-use extension sends text only to the server you configure and does not require an OpenAI account.
 See [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) for implementation and verification reports and [REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) for the refactor sequence.
 
 ## Start the local server
@@ -18,6 +18,7 @@ python -m kokoro_server
 ```
 
 The default address is `http://127.0.0.1:8880`.
+For a server on another machine on a trusted LAN, start it with `--host 0.0.0.0 --allowed-host SERVER_LAN_IP` and enter `http://SERVER_LAN_IP:8880` in the extension settings. The browser will ask for access to that server host when you save or test the connection. See the [server guide](../kokoro_server/README.md) for firewall and HTTPS guidance.
 Wait for server startup to finish, and keep that terminal running while you use the extension.
 The default device is automatically MPS on supported Apple Silicon or CPU elsewhere; `--device cpu` forces CPU.
 See [server guide](../kokoro_server/README.md) for setup, device selection, and endpoint details.
@@ -136,7 +137,7 @@ An unsuccessful prefetch is discarded and the unread sentence gets a normal requ
 - Top-level HTML documents and ordinary DOM text; Firefox internal pages, PDF viewers, cross-origin frames, and shadow-root selections are outside this version's scope.
 - Conservative article extraction may ask for a manual selection on ambiguous or highly dynamic pages.
 - Gaps can still occur when synthesis exhausts the available read-ahead buffer, especially immediately after starting or seeking.
-- Loopback HTTP endpoints only, with a shared token stored in Firefox extension settings; the token is not included in page controls or content-script messages.
+- HTTP loopback and private IPv4 LAN endpoints, or HTTPS endpoints, with a shared token stored in Firefox extension settings; the token is not included in page controls or content-script messages.
 - The 32 MiB budget covers retained raw audio, streaming assembly, and decoded samples; browser-internal copies and garbage collection are outside the extension's control.
 
 The short-sentence diagnosis, implementation steps, CPU/MPS measurements, and playback regression commands are in [PERFORMANCE.md](docs/PERFORMANCE.md).
@@ -237,6 +238,6 @@ To install on an iPhone or iPad:
 
 A free Xcode Personal Team can install on a personal device, but its provisioning profiles expire seven days after issuance; rebuild and reinstall after expiry. See [Apple's account limits](https://developer.apple.com/help/account/basics/about-your-developer-account). For distribution through TestFlight, enroll in the Apple Developer Program and upload a build to App Store Connect. Each TestFlight build is available for up to 90 days; see [Apple's TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/). These are separate installation paths, and neither has been validated on a physical device for this project.
 
-**Physical-device backend limitation:** the current settings accept only HTTP loopback URLs. On an iPhone or iPad, `127.0.0.1` points to that device, not the Mac running Kokoro, so a normal Mac-hosted server is unreachable. A future device-ready connection needs an authenticated HTTPS backend reachable from the device, appropriate Safari host permissions, and corresponding settings and server changes. This is not implemented. The simulator can reach a Mac loopback server after granting the local network permission.
+**Physical-device backend:** on an iPhone or iPad, `127.0.0.1` points to that device. Use the Mac's private LAN IPv4 address and start the server with the LAN options above. Safari may require local network and host access permissions; this path has not been verified on a physical device. The simulator can reach a Mac loopback server after granting the local network permission.
 
 The Safari target remains experimental. Its nonpersistent background can lose the in-memory coordinator on suspension, and recovery needs further testing. The Safari build omits the Firefox selection context menu; the reader toolbar still offers selection and whole-page reading.

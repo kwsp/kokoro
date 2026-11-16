@@ -1,5 +1,9 @@
 # Firefox reader execution plan
 
+## LAN server connection
+
+The settings validator accepts HTTP loopback and private IPv4 addresses, plus HTTPS URLs. Firefox requests host access for the configured server when the user saves settings or tests the connection. The server CLI can bind to `0.0.0.0` with a required `--allowed-host` matching the address clients use; its default remains loopback. The shared bearer token still protects speech and discovery routes, while the host check rejects unexpected host headers. See the extension and server READMEs for LAN setup and firewall guidance.
+
 The approved design is in [PLAN.md](PLAN.md).
 Implement the five steps below in order, with a subagent report and review before each step is committed.
 Use the existing global Git author and run formatting, lint, type checking, unit tests, and the relevant real Firefox checks before each commit.

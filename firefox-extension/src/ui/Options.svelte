@@ -162,6 +162,13 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
   const readForm = () =>
     validateSettings({ baseUrl, token, voice, speed: Number(speed) });
 
+  async function allowServer(settings: { baseUrl: string }) {
+    const url = new URL(settings.baseUrl);
+    const origin = `${url.protocol}//${url.hostname}/*`;
+    if (!(await browser.permissions.request({ origins: [origin] })))
+      throw new Error("Allow access to this server to connect.");
+  }
+
   onMount(() => {
     port = browser.runtime.connect({ name: "voice-preview" });
     portConnected = true;
@@ -210,7 +217,9 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
     event.preventDefault();
     status = "Saving settings…";
     try {
-      await browser.storage.local.set({ settings: readForm() });
+      const settings = readForm();
+      await allowServer(settings);
+      await browser.storage.local.set({ settings });
       status = "Settings saved.";
     } catch (error) {
       status =
@@ -224,7 +233,7 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
     status = "";
   }
 
-  async function loadVoices(reportStatus: boolean) {
+  async function loadVoices(reportStatus: boolean, requestAccess = false) {
     const generation = ++requestGeneration;
     voices = [];
     if (reportStatus) status = "Checking connection…";
@@ -236,6 +245,7 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
         voice: defaults.voice,
         speed: defaults.speed,
       });
+      if (requestAccess) await allowServer(settings);
       const response = await fetch(`${settings.baseUrl}/v1/voices`, {
         redirect: "error",
         headers: { Authorization: `Bearer ${settings.token}` },
@@ -257,7 +267,7 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
       if (reportStatus)
         status =
           error instanceof TypeError
-            ? "Cannot reach the local speech server."
+            ? "Cannot reach the speech server."
             : error instanceof Error
               ? error.message
               : "Connection failed.";
@@ -269,7 +279,7 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
   <aside id="settings-panel" aria-labelledby="settings-heading">
     <div class="brand">Kokoro</div>
     <h2 id="settings-heading">Settings</h2>
-    <p class="intro">Connect to your local speech server.</p>
+    <p class="intro">Connect to your speech server.</p>
     <form id="settings" onsubmit={save}>
       <label
         >Server URL<input
@@ -323,7 +333,7 @@ When the sunlight strikes raindrops in the air, they act as a prism and form a r
       >
       <div class="actions">
         <button type="submit">Save settings</button>
-        <button type="button" id="test" onclick={() => loadVoices(true)}
+        <button type="button" id="test" onclick={() => loadVoices(true, true)}
           >Test connection</button
         >
       </div>
